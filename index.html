@@ -3075,10 +3075,12 @@
       }
 
       checkVictoryCondition() {
-        const alivePlayers = this.players.filter(p => p.isAlive);
+        // Setores "vagos" (sem jogador real conectado) não contam para decidir o fim de jogo.
+        const realPlayers = this.players.filter(p => !p.isVacant);
+        const alivePlayers = realPlayers.filter(p => p.isAlive);
         if (alivePlayers.length <= 1 && this.isMatchRunning) {
           this.isMatchRunning = false;
-          const winner = alivePlayers[0] || this.players[0];
+          const winner = alivePlayers[0] || realPlayers[0] || this.players[0];
           showVictoryScreen(winner, this.round);
           return true;
         }
@@ -3215,9 +3217,11 @@
             loadGameState(data.gameState);
             localVersion = data.version;
             updateUI();
+            if (hostAutoAdvanceVacantTurns()) syncIfOnline();
           } else if (data.version > localVersion) {
             localVersion = data.version;
             applyRemoteGameState(data.gameState);
+            if (hostAutoAdvanceVacantTurns()) syncIfOnline();
           }
         }
       }, err => {
@@ -3244,14 +3248,34 @@
 
       const startBtn = document.getElementById('btn-lobby-start-online');
       if (isHost) {
-        // Como o tabuleiro tem 4 setores fixos, a partida online exige os 4 assentos preenchidos.
-        const enough = onlineNames.length === 4;
+        // Mínimo 2 jogadores reais. Os assentos que sobrarem (até 4) ficam "vagos"
+        // e têm o turno pulado automaticamente durante a partida.
+        const enough = onlineNames.length >= 2;
         startBtn.disabled = !enough;
-        startBtn.innerText = enough ? 'INICIAR PARTIDA' : `AGUARDANDO JOGADORES... (${onlineNames.length}/4)`;
+        startBtn.innerText = enough
+          ? `INICIAR PARTIDA (${onlineNames.length} jogador${onlineNames.length > 1 ? 'es' : ''})`
+          : `AGUARDANDO JOGADORES... (${onlineNames.length}/2 mínimo)`;
       } else {
         startBtn.disabled = true;
         startBtn.innerText = 'AGUARDANDO O ANFITRIÃO INICIAR...';
       }
+    }
+
+    // Faz os setores sem jogador real passarem o turno sozinhos, sem travar o jogo.
+    // Só o anfitrião executa isso, para não haver duas pessoas mexendo no mesmo estado.
+    function hostAutoAdvanceVacantTurns() {
+      if (!isHost || !onlineMode) return false;
+      let advanced = false;
+      let guard = 0;
+      while (game.isMatchRunning) {
+        const cur = game.getCurrentPlayer();
+        if (!cur || !cur.isVacant) break;
+        game.endTurn();
+        advanced = true;
+        guard++;
+        if (guard > 8) break; // trava de segurança contra loop infinito
+      }
+      return advanced;
     }
 
     function leaveRoom() {
@@ -3347,6 +3371,16 @@
       if (!isHost) return;
       sound.playClick();
       game.initPlayers(onlineNames);
+
+      // Assentos além dos jogadores que realmente entraram viram setores "vagos":
+      // continuam no tabuleiro (sofrem intempérie normalmente), mas nunca jogam
+      // cartas nem seguram o jogo esperando por alguém.
+      for (let i = onlineNames.length; i < game.players.length; i++) {
+        game.players[i].isVacant = true;
+        game.players[i].playerName = `${game.players[i].playerName} (Vago)`;
+      }
+      hostAutoAdvanceVacantTurns();
+
       await db.collection('rooms').doc(roomCode).update({
         status: 'playing',
         gameState: serializeGameState(),
