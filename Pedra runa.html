@@ -1,0 +1,3851 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pedra Runa — Conflito Isométrico de Sustentabilidade</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Caveat:wght@400;500;600;700&family=Patrick+Hand&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+
+    <style>
+    :root {
+      --bg-sky-top: #2f8fd1;
+      --bg-sky-mid: #6fc3ec;
+      --bg-sky-low: #a9dcf4;
+      --bg-sky-bottom: #ddf1fb;
+
+      --panel-bg: rgba(255,255,255,0.74);
+      --panel-bg-soft: rgba(255,255,255,0.48);
+      --panel-border: rgba(15, 35, 58, 0.36);
+      --panel-shadow: rgba(6, 20, 36, 0.2);
+      --panel-highlight: rgba(255,255,255,0.55);
+      --text-main: #0d2036;
+      --text-muted: #3d5b78;
+      --accent-cyan: #1c7fb0;
+      --accent-emerald: #1e633d;
+      --accent-amber: #b0720a;
+      --accent-orange: #be530a;
+      --accent-purple: #5c338c;
+      --accent-rose: #941341;
+
+      /* Identidade Pedra Runa: pedra fria (vidro/cyan) + runa gravada (âmbar) */
+      --accent-rune: #c99a3e;
+      --accent-rune-soft: rgba(201, 154, 62, 0.16);
+      --accent-rune-line: rgba(201, 154, 62, 0.55);
+
+      --sector-a: #22c55e;
+      --sector-b: #fb7185;
+      --sector-c: #f97316;
+      --sector-d: #38bdf8;
+
+      --font-ui: 'Plus Jakarta Sans', sans-serif;
+      --font-title: 'Orbitron', sans-serif;
+
+      /* Escala de raio unificada */
+      --r-sm: 8px;
+      --r-md: 12px;
+      --r-lg: 16px;
+      --r-xl: 22px;
+      --r-pill: 999px;
+
+      /* Escala de sombra unificada */
+      --shadow-sm: 0 4px 10px rgba(6,20,36,0.14);
+      --shadow-md: 0 10px 22px var(--panel-shadow), inset 0 1px 0 var(--panel-highlight);
+      --shadow-lg: 0 18px 34px rgba(6,20,36,0.26), inset 0 1px 0 var(--panel-highlight);
+    }
+
+    /* Hexágono — mesma silhueta dos setores do tabuleiro, usado em avatares/emblemas */
+    .hex-frame {
+      clip-path: polygon(25% 3%, 75% 3%, 100% 50%, 75% 97%, 25% 97%, 0% 50%);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: linear-gradient(180deg, var(--bg-sky-top) 0%, var(--bg-sky-mid) 30%, var(--bg-sky-low) 70%, var(--bg-sky-bottom) 100%);
+      color: var(--text-main);
+      font-family: var(--font-ui);
+    }
+
+    body {
+      position: relative;
+    }
+
+    #game-canvas {
+      position: absolute;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      display: block;
+      z-index: 1;
+    }
+
+    #ui-overlay {
+      position: absolute;
+      inset: 0;
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 16px;
+      pointer-events: none;
+    }
+
+    .clickable {
+      pointer-events: auto;
+    }
+
+    .top-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 16px;
+      width: 100%;
+    }
+
+    .game-brand,
+    .event-banner,
+    .combat-log,
+    .hud-main-panel,
+    .card,
+    .modal-window,
+    .mini-player-card,
+    .tool-btn {
+      background: var(--panel-bg);
+      border: 1px solid var(--panel-border);
+      box-shadow: var(--shadow-md);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+    }
+
+    .game-brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 9px 18px 9px 10px;
+      border-radius: var(--r-pill);
+      color: var(--text-main);
+    }
+
+    .brand-logo {
+      width: 38px;
+      height: 38px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--font-title);
+      font-size: 20px;
+      font-weight: 800;
+      color: #3a2c0d;
+      background: linear-gradient(155deg, #f3d98a 0%, var(--accent-rune) 55%, #96712a 100%);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.55), 0 2px 6px rgba(120, 88, 20, 0.4);
+    }
+
+    .brand-title {
+      font-family: var(--font-title);
+      font-size: 19px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      font-weight: 800;
+    }
+
+    .brand-round {
+      font-size: 12px;
+      font-weight: 700;
+      opacity: 0.8;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+
+    .event-banner {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      max-width: 480px;
+      padding: 12px 18px;
+      border-radius: 12px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.8), rgba(255,255,255,0.62));
+      border-color: rgba(148, 19, 65, 0.5);
+      color: var(--text-main);
+    }
+
+    .event-icon {
+      width: 42px;
+      height: 42px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      background: rgba(148, 19, 65, 0.1);
+      border: 1px solid rgba(148, 19, 65, 0.45);
+    }
+
+    .event-label {
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: #941341;
+    }
+
+    .event-name {
+      font-weight: 900;
+      font-size: 16px;
+      line-height: 1.2;
+      letter-spacing: 0.02em;
+    }
+
+    .event-desc {
+      font-size: 12px;
+      opacity: 0.9;
+      line-height: 1.4;
+      color: var(--text-main);
+    }
+
+    .event-dmg-badge {
+      margin-left: auto;
+      padding: 5px 10px;
+      border-radius: 999px;
+      background: rgba(148, 19, 65, 0.12);
+      border: 1px solid rgba(148, 19, 65, 0.38);
+      color: #941341;
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .players-status-bar {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .mini-player-card {
+      min-width: 142px;
+      border-radius: var(--r-md);
+      padding: 8px 12px;
+      border-width: 1px;
+      transition: border-color 0.25s ease, box-shadow 0.25s ease, opacity 0.25s ease, transform 0.25s ease;
+    }
+
+    .mini-player-card.active-turn {
+      border-color: var(--accent-rune-line);
+      background: linear-gradient(180deg, rgba(255,250,235,0.88), rgba(255,255,255,0.68));
+      box-shadow: var(--shadow-md), 0 0 0 2px var(--accent-rune-soft);
+      transform: translateY(-2px);
+    }
+
+    .mini-player-card.eliminated {
+      opacity: 0.45;
+      filter: grayscale(0.6);
+      box-shadow: none;
+    }
+
+    .mini-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+
+    .sector-tag {
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      background: rgba(255,255,255,0.16);
+      border: 1px solid var(--panel-border);
+      border-radius: 999px;
+      padding: 3px 7px;
+    }
+
+    .mini-hp-bar,
+    .hp-bar-full {
+      width: 100%;
+      height: 8px;
+      background: rgba(255,255,255,0.25);
+      border-radius: 999px;
+      overflow: hidden;
+      border: 1px solid var(--panel-border);
+    }
+
+    .mini-hp-fill,
+    .hp-bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent-emerald), #60c782);
+      border-radius: inherit;
+    }
+
+    .mini-stats,
+    .hp-numbers {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 11px;
+      margin-top: 6px;
+      opacity: 0.9;
+    }
+
+    .middle-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-top: 12px;
+      flex: 1;
+      pointer-events: none;
+    }
+
+    .camera-tools {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .tool-btn {
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      color: var(--text-main);
+      cursor: pointer;
+    }
+
+    .combat-log {
+      width: 320px;
+      max-height: 220px;
+      border-radius: 12px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .log-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding-bottom: 6px;
+      border-bottom: 1px solid rgba(23,50,77,0.2);
+    }
+
+    .log-feed {
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      font-size: 12px;
+      line-height: 1.45;
+      color: var(--text-main);
+    }
+
+    .bottom-hud {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      width: 100%;
+      max-width: 1280px;
+      margin: 0 auto;
+    }
+
+    .hud-main-panel {
+      position: relative;
+      border-radius: var(--r-lg);
+      padding: 16px 18px 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      background: rgba(255,255,255,0.16);
+      overflow: hidden;
+    }
+
+    .hud-main-panel::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 14px;
+      right: 14px;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--accent-rune-line), transparent);
+    }
+
+    .player-profile {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .player-avatar {
+      width: 52px;
+      height: 52px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 26px;
+      background: rgba(255,255,255,0.22);
+      border: 1px solid var(--panel-border);
+    }
+
+    .player-name {
+      font-family: var(--font-title);
+      font-size: 20px;
+      font-weight: 900;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--text-main);
+    }
+
+    .sector-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.2);
+      border: 1px solid var(--panel-border);
+      padding: 3px 8px;
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .hp-and-credits {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .hp-box {
+      width: 180px;
+    }
+
+    .values-chip,
+    .credits-box,
+    .mitigation-status {
+      border-radius: 10px;
+      background: rgba(255,255,255,0.14);
+      border: 1px solid var(--panel-border);
+    }
+
+    .credits-box,
+    .mitigation-status {
+      padding: 8px 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .credits-value {
+      font-family: var(--font-title);
+      font-size: 18px;
+      font-weight: 800;
+    }
+
+    .hud-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .btn-action,
+    .btn-start-game,
+    .modal-btn-cancel,
+    .card-btn-play {
+      border: 1px solid rgba(17, 24, 39, 0.18);
+      border-radius: 10px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.82), rgba(233,244,255,0.7));
+      color: var(--text-main);
+      font-weight: 800;
+      cursor: pointer;
+      transition: transform 0.12s ease, filter 0.12s ease, box-shadow 0.12s ease;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.8), 0 8px 18px rgba(15,23,42,0.10);
+    }
+
+    .btn-action {
+      padding: 12px 18px;
+      font-size: 14px;
+      letter-spacing: 0.01em;
+    }
+
+    .btn-action:hover,
+    .btn-start-game:hover,
+    .modal-btn-cancel:hover,
+    .card-btn-play:hover {
+      transform: translateY(-1px);
+      filter: brightness(1.03);
+    }
+
+    .btn-action:active,
+    .btn-start-game:active,
+    .card-btn-play:active {
+      transform: translateY(0);
+      filter: brightness(0.98);
+    }
+
+    /* Ação primária do turno recebe o acento dourado da identidade */
+    .btn-end-turn {
+      background: linear-gradient(180deg, #f3d98a, var(--accent-rune) 85%);
+      border-color: rgba(120, 88, 20, 0.5);
+      color: #3a2c0d;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.6), 0 8px 18px rgba(120, 88, 20, 0.28);
+    }
+
+    .card-btn-play:disabled {
+      cursor: not-allowed;
+      filter: grayscale(0.5);
+      opacity: 0.7;
+    }
+
+    .hand-container {
+      display: flex;
+      gap: 12px;
+      overflow-x: auto;
+      padding: 8px 4px;
+      min-height: 170px;
+    }
+
+    .card {
+      width: 160px;
+      min-width: 160px;
+      height: 165px;
+      border-radius: var(--r-lg);
+      padding: 10px 10px 10px 13px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      position: relative;
+      color: var(--text-main);
+      border-left: 4px solid var(--card-color, var(--accent-cyan));
+      box-shadow: var(--shadow-md), 0 0 16px -6px var(--card-glow, transparent);
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .card:hover {
+      transform: translateY(-3px);
+    }
+
+    .card.unaffordable {
+      filter: grayscale(0.7);
+      opacity: 0.62;
+    }
+
+    .card.unaffordable:hover {
+      transform: none;
+    }
+
+    .card-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .card-type-tag,
+    .card-cost {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      border-radius: var(--r-pill);
+      font-size: 10px;
+      font-weight: 800;
+      padding: 3px 8px;
+      background: rgba(255,255,255,0.2);
+      border: 1px solid var(--panel-border);
+    }
+
+    .card-cost {
+      clip-path: polygon(18% 0%, 82% 0%, 100% 50%, 82% 100%, 18% 100%, 0% 50%);
+      border-radius: 0;
+      border: none;
+      padding: 4px 10px;
+      background: linear-gradient(155deg, #f3d98a, var(--accent-rune) 70%);
+      color: #3a2c0d;
+    }
+
+    .card-icon {
+      font-size: 24px;
+      text-align: center;
+    }
+
+    .card-title {
+      font-family: var(--font-title);
+      font-size: 14px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      line-height: 1.2;
+      color: var(--text-main);
+    }
+
+    .card-desc {
+      font-size: 11px;
+      opacity: 0.9;
+      line-height: 1.45;
+      color: var(--text-main);
+    }
+
+    .card-btn-play {
+      width: 100%;
+      padding: 6px 0;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .modal-backdrop {
+      position: absolute;
+      inset: 0;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(11, 21, 34, 0.44);
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
+      pointer-events: auto;
+    }
+
+    .modal-backdrop.hidden {
+      display: none;
+    }
+
+    .modal-window {
+      position: relative;
+      width: min(580px, 90%);
+      max-width: 580px;
+      border-radius: var(--r-xl);
+      padding: 24px 18px 18px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.82), rgba(234,244,255,0.72));
+      border: 1px solid rgba(15,35,58,0.35);
+      box-shadow: var(--shadow-lg);
+      overflow: hidden;
+    }
+
+    .modal-window::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 20%;
+      right: 20%;
+      height: 3px;
+      background: linear-gradient(90deg, transparent, var(--accent-rune), transparent);
+    }
+
+    .modal-header {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 18px;
+    }
+
+    .modal-title {
+      font-family: var(--font-title);
+      font-size: clamp(1.8rem, 2.5vw, 2.7rem);
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      text-align: center;
+      line-height: 1.05;
+    }
+
+    .modal-subtitle {
+      text-align: center;
+      opacity: 0.8;
+      font-size: 14px;
+      margin-top: 2px;
+      line-height: 1.4;
+    }
+
+    .setup-slots {
+      display: grid;
+      gap: 10px;
+      margin-top: 8px;
+    }
+
+    .setup-slot {
+      display: grid;
+      grid-template-columns: 10px minmax(0, 1fr) 150px;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 12px;
+      border-radius: 12px;
+      background: rgba(255,255,255,0.22);
+      border: 1px solid rgba(15,35,58,0.28);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.28);
+    }
+
+    .slot-color-pip {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--slot-color, var(--accent-cyan));
+      box-shadow: 0 0 0 3px rgba(255,255,255,0.14);
+    }
+
+    .slot-info {
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .slot-title {
+      font-family: var(--font-title);
+      font-size: 12px;
+      line-height: 1.2;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .slot-desc {
+      font-size: 11px;
+      color: rgba(23,50,77,0.8);
+      line-height: 1.35;
+    }
+
+    .slot-input {
+      width: 100%;
+      border: 1px solid rgba(15,35,58,0.25);
+      background: rgba(255,255,255,0.8);
+      border-radius: 9px;
+      padding: 9px 10px;
+      color: var(--text-main);
+      font-size: 13px;
+      font-weight: 700;
+      outline: none;
+    }
+
+    .slot-input:focus {
+      border-color: rgba(15,35,58,0.45);
+      box-shadow: 0 0 0 3px rgba(56,189,248,0.18);
+    }
+
+    .targets-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-top: 18px;
+    }
+
+    .target-card {
+      padding: 12px 10px;
+      border-radius: 12px;
+      text-align: center;
+      background: rgba(255,255,255,0.12);
+      border: 1px solid var(--panel-border);
+    }
+
+    .target-avatar {
+      width: 52px;
+      height: 52px;
+      margin: 0 auto 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 26px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.5), rgba(255,255,255,0.22));
+      border: 1px solid var(--panel-border);
+    }
+
+    .target-name {
+      font-weight: 800;
+    }
+
+    .btn-start-game,
+    .modal-btn-cancel {
+      width: 100%;
+      margin-top: 16px;
+      padding: 14px 20px;
+      font-family: var(--font-title);
+      font-size: 18px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      background: linear-gradient(180deg, rgba(255,255,255,0.28), rgba(255,255,255,0.16));
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.2), 0 8px 18px rgba(17,24,39,0.12);
+    }
+
+    .modal-btn-cancel {
+      margin-top: 18px;
+      font-size: 14px;
+      letter-spacing: 0.06em;
+    }
+
+    .fct {
+      position: absolute;
+      font-family: var(--font-title);
+      font-size: 18px;
+      font-weight: 800;
+      pointer-events: none;
+      z-index: 50;
+      animation: floatUp 1.2s forwards ease;
+    }
+
+    @keyframes floatUp {
+      0% { opacity: 0; transform: translate(-50%, 0) scale(0.8); }
+      25% { opacity: 1; transform: translate(-50%, -20px) scale(1.05); }
+      100% { opacity: 0; transform: translate(-50%, -70px) scale(0.9); }
+    }
+
+    ::-webkit-scrollbar {
+      width: 7px;
+      height: 7px;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(201, 154, 62, 0.45);
+      border-radius: var(--r-pill);
+    }
+
+    @media (max-width: 860px) {
+      html, body {
+        overflow: hidden;
+      }
+
+      #ui-overlay {
+        position: absolute;
+        inset: 0;
+        padding: 6px 8px 10px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        pointer-events: none;
+      }
+
+      .top-header {
+        position: absolute;
+        inset: 0 0 auto 0;
+        display: flex;
+        justify-content: center;
+        align-items: flex-start;
+        padding: 6px 8px 0;
+        z-index: 20;
+        pointer-events: none;
+      }
+
+      .game-brand {
+        display: none;
+      }
+
+      .event-banner {
+        width: min(92vw, 560px);
+        max-width: none;
+        margin: 0 auto;
+        padding: 10px 12px;
+        border-radius: 10px;
+        background: linear-gradient(180deg, rgba(255,255,255,0.82), rgba(255,255,255,0.68));
+        pointer-events: auto;
+      }
+
+      .event-icon {
+        width: 34px;
+        height: 34px;
+        font-size: 18px;
+      }
+
+      .event-label {
+        font-size: 9px;
+      }
+
+      .event-name {
+        font-size: 13px;
+      }
+
+      .event-desc {
+        font-size: 10px;
+        line-height: 1.5;
+      }
+
+      .event-dmg-badge {
+        font-size: 11px;
+        padding: 4px 8px;
+      }
+
+      .players-status-bar,
+      .camera-tools,
+      .combat-log {
+        display: none !important;
+      }
+
+      .middle-row {
+        display: none !important;
+      }
+
+      .bottom-hud {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        padding: 0 8px 8px;
+        pointer-events: none;
+      }
+
+      .hud-main-panel {
+        width: 100%;
+        border-radius: 12px;
+        padding: 10px 12px;
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+        background: rgba(255,255,255,0.18);
+        pointer-events: auto;
+      }
+
+      .player-profile {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .player-avatar {
+        width: 42px;
+        height: 42px;
+        font-size: 22px;
+        border-radius: 10px;
+      }
+
+      .player-details {
+        flex: 1;
+      }
+
+      .player-name-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        margin-bottom: 6px;
+      }
+
+      .player-name {
+        font-size: 16px;
+        letter-spacing: 0.04em;
+      }
+
+      .sector-badge {
+        font-size: 9px;
+        padding: 3px 6px;
+      }
+
+      .hp-and-credits {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
+
+      .hp-box {
+        flex: 1;
+        min-width: 0;
+      }
+
+      .hp-numbers {
+        font-size: 10px;
+      }
+
+      .credits-box,
+      .mitigation-status {
+        padding: 6px 8px;
+      }
+
+      .credits-value {
+        font-size: 15px;
+      }
+
+      .credits-label,
+      .mitigation-text {
+        font-size: 9px;
+      }
+
+      .shield-icon,
+      .credits-icon {
+        font-size: 14px;
+      }
+
+      .hud-actions {
+        width: 100%;
+        display: flex;
+        justify-content: space-between;
+        gap: 8px;
+      }
+
+      .btn-action {
+        flex: 1;
+        min-width: 0;
+        padding: 10px 8px;
+        font-size: 12px;
+      }
+
+      .hand-container {
+        width: 100%;
+        min-height: 120px;
+        padding: 4px 2px 0;
+        gap: 8px;
+        pointer-events: auto;
+      }
+
+      .card {
+        width: 120px;
+        min-width: 120px;
+        height: 132px;
+        padding: 8px;
+        border-radius: 10px;
+      }
+
+      .card-title {
+        font-size: 12px;
+      }
+
+      .card-desc {
+        font-size: 10px;
+        line-height: 1.5;
+      }
+
+      .card-btn-play {
+        font-size: 10px;
+        padding: 5px 0;
+      }
+
+      .modal-backdrop {
+        z-index: 200;
+      }
+
+      .modal-window {
+        width: min(92vw, 420px);
+        padding: 16px 12px 14px;
+      }
+
+      .modal-title {
+        letter-spacing: 0.05em;
+      }
+
+      .setup-slot {
+        grid-template-columns: 10px minmax(0, 1fr);
+      }
+
+      .slot-input {
+        grid-column: 1 / -1;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Three.js Canvas -->
+  <canvas id="game-canvas"></canvas>
+
+  <!-- Floating 2D Damage Text Container -->
+  <div id="fct-container" style="position: absolute; inset:0; pointer-events: none; z-index: 50;"></div>
+
+  <!-- UI Overlay -->
+  <div id="ui-overlay">
+    
+    <!-- Top Bar -->
+    <div class="top-header">
+      <!-- Game Brand / Round -->
+      <div class="game-brand clickable">
+        <div class="brand-logo hex-frame">ᚱ</div>
+        <div>
+          <div class="brand-title">PEDRA RUNA</div>
+          <div class="brand-round" id="hud-round-indicator">RODADA 01 • INÍCIO</div>
+        </div>
+      </div>
+
+      <!-- Environmental Event Banner -->
+      <div class="event-banner clickable" id="hud-event-banner">
+        <div class="event-icon" id="hud-event-icon">⚡</div>
+        <div class="event-info">
+          <div class="event-label">Intempérie Ambiental da Rodada</div>
+          <div class="event-name" id="hud-event-name">Tempestade Eletromagnética</div>
+          <div class="event-desc" id="hud-event-desc">Descargas perturbam geradores e causam desgaste severo.</div>
+        </div>
+        <div class="event-dmg-badge" id="hud-event-dmg">-10 PS</div>
+      </div>
+
+      <!-- Quick Players Status Bar -->
+      <div class="players-status-bar clickable" id="hud-players-bar">
+        <!-- Rendered dynamically -->
+      </div>
+    </div>
+
+    <!-- Middle Floating Helpers -->
+    <div class="middle-row">
+      <!-- Camera & Sound Tools -->
+      <div class="camera-tools clickable">
+        <button class="tool-btn" id="btn-sound-toggle" title="Ativar/Desativar Som">🔊</button>
+        <button class="tool-btn" id="btn-cam-reset" title="Restaurar Visão Isométrica">🎯</button>
+        <button class="tool-btn" id="btn-orbit-toggle" title="Girar Cenário Devagar">🔄</button>
+      </div>
+
+      <!-- Combat / Event Log -->
+      <div class="combat-log clickable">
+        <div class="log-header">
+          <span>Histórico da Cidade</span>
+          <span style="font-size:9px; opacity:0.6;">AO VIVO</span>
+        </div>
+        <div class="log-feed" id="combat-log-feed">
+          <div class="log-entry event">Bem-vindos à Cidade de Pedra Runa! A disputa por sobrevivência começou.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom HUD (Current Player Controls & Hand of Cards) -->
+    <div class="bottom-hud">
+      
+      <div id="turn-alert-container"></div>
+
+      <div class="hud-main-panel clickable">
+        
+        <!-- Player Info -->
+        <div class="player-profile">
+          <div class="player-avatar hex-frame" id="hud-current-avatar">🌲</div>
+          <div class="player-details">
+            <div class="player-name-row">
+              <span class="player-name" id="hud-current-name">Jogador 1</span>
+              <span class="sector-badge" id="hud-current-sector">Setor A • Minas & Florestas</span>
+            </div>
+            
+            <div class="hp-and-credits">
+              <!-- PS Bar -->
+              <div class="hp-box">
+                <div class="hp-numbers">
+                  <span>Sustentabilidade (PS)</span>
+                  <span id="hud-current-hp">100 / 100</span>
+                </div>
+                <div class="hp-bar-full">
+                  <div class="hp-bar-fill" id="hud-current-hp-bar" style="width: 100%;"></div>
+                </div>
+              </div>
+
+              <!-- Credits -->
+              <div class="credits-box">
+                <span class="credits-icon">⚡</span>
+                <div>
+                  <div class="credits-value" id="hud-current-credits">10</div>
+                  <div class="credits-label">Créditos</div>
+                </div>
+              </div>
+
+              <!-- Active Mitigation -->
+              <div class="mitigation-status">
+                <span class="shield-icon">🛡️</span>
+                <div class="mitigation-text">
+                  <span>Defesa p/ Evento:</span>
+                  <strong id="hud-current-defense">0 PS</strong>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Action Controls -->
+        <div class="hud-actions">
+          <button class="btn-action btn-buy-card" id="btn-buy-card">
+            <span>🛒</span>
+            <span>Comprar Carta (4⚡)</span>
+          </button>
+          
+          <button class="btn-action btn-end-turn" id="btn-end-turn">
+            <span>Passar Turno</span>
+            <span>➔</span>
+          </button>
+        </div>
+
+      </div>
+
+      <!-- Cards Deck / Hand -->
+      <div class="hand-container clickable" id="hand-container">
+        <!-- Rendered dynamically -->
+      </div>
+
+    </div>
+
+  </div>
+
+  <!-- Modal: Lobby Online (Criar Sala / Entrar em Sala) -->
+  <div class="modal-backdrop" id="modal-lobby">
+    <div class="modal-window">
+      <div class="modal-header">
+        <div style="font-size:36px;">🏙️</div>
+        <div class="modal-title">CIDADE DE PEDRA RUNA</div>
+        <div class="modal-subtitle">Jogue com amigos em dispositivos diferentes através de uma sala com código, ou no mesmo aparelho no modo local.</div>
+      </div>
+
+      <div id="lobby-choice-screen">
+        <div style="display:flex; flex-direction:column; gap:10px; margin: 14px 0;">
+          <button class="btn-start-game" id="btn-lobby-create">CRIAR SALA ONLINE</button>
+          <button class="btn-start-game" id="btn-lobby-show-join" style="background:var(--accent-cyan);">ENTRAR EM SALA COM CÓDIGO</button>
+          <button class="modal-btn-cancel" id="btn-lobby-local">Jogar localmente (mesmo aparelho)</button>
+        </div>
+        <div id="lobby-join-row" class="hidden" style="display:flex; gap:8px; margin-top:6px;">
+          <input type="text" class="slot-input" id="lobby-join-code" placeholder="CÓDIGO DA SALA" maxlength="6" style="text-transform:uppercase;">
+          <button class="btn-start-game" id="btn-lobby-join" style="width:auto; padding:0 18px;">ENTRAR</button>
+        </div>
+        <div id="lobby-error-msg" style="color:#941341; font-size:13px; font-weight:700; margin-top:8px;"></div>
+      </div>
+
+      <div id="lobby-waiting-screen" class="hidden">
+        <div style="text-align:center; margin: 10px 0;">
+          <div class="slot-desc">Código da sala — compartilhe com os outros jogadores:</div>
+          <div id="lobby-room-code" style="font-family: var(--font-title); font-size: 34px; font-weight:900; letter-spacing:0.1em; color: var(--accent-rune);">------</div>
+        </div>
+        <div id="lobby-players-list" style="display:flex; flex-direction:column; gap:6px; margin: 10px 0;"></div>
+        <button class="btn-start-game" id="btn-lobby-start-online" disabled>AGUARDANDO JOGADORES...</button>
+        <button class="modal-btn-cancel" id="btn-lobby-leave">Sair da sala</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Setup da Partida (modo local, mesmo aparelho) -->
+  <div class="modal-backdrop hidden" id="modal-setup">
+    <div class="modal-window">
+      <div class="modal-header">
+        <div style="font-size:36px;">🏙️</div>
+        <div class="modal-title">CIDADE DE PEDRA RUNA</div>
+        <div class="modal-subtitle">Conflito Estratégico de Sustentabilidade em 4 Setores Isométricos</div>
+      </div>
+
+      <div class="setup-slots">
+        <!-- Slot A -->
+        <div class="setup-slot" style="--slot-color: var(--sector-a);">
+          <div class="slot-color-pip"></div>
+          <div class="slot-info">
+            <div class="slot-title" style="color: var(--sector-a);">Setor A • Minas & Florestas</div>
+            <div class="slot-desc">Vegetação densa, picos rochosos e reservas ecológicas.</div>
+          </div>
+          <input type="text" class="slot-input" id="setup-p0" value="Jogador 1">
+        </div>
+
+        <!-- Slot B -->
+        <div class="setup-slot" style="--slot-color: var(--sector-b);">
+          <div class="slot-color-pip"></div>
+          <div class="slot-info">
+            <div class="slot-title" style="color: var(--sector-b);">Setor B • Residencial</div>
+            <div class="slot-desc">Vilarejo em tons pastéis, bairros aconchegantes e praças.</div>
+          </div>
+          <input type="text" class="slot-input" id="setup-p1" value="Jogador 2">
+        </div>
+
+        <!-- Slot C -->
+        <div class="setup-slot" style="--slot-color: var(--sector-c);">
+          <div class="slot-color-pip"></div>
+          <div class="slot-info">
+            <div class="slot-title" style="color: var(--sector-c);">Setor C • Industrial</div>
+            <div class="slot-desc">Fábricas de grafite, chaminés contínuas e maquinários pesados.</div>
+          </div>
+          <input type="text" class="slot-input" id="setup-p2" value="Jogador 3">
+        </div>
+
+        <!-- Slot D -->
+        <div class="setup-slot" style="--slot-color: var(--sector-d);">
+          <div class="slot-color-pip"></div>
+          <div class="slot-info">
+            <div class="slot-title" style="color: var(--sector-d);">Setor D • Empresarial & Hi-Tech</div>
+            <div class="slot-desc">Arranha-céus espelhados, helipontos e conexões futuristas.</div>
+          </div>
+          <input type="text" class="slot-input" id="setup-p3" value="Jogador 4">
+        </div>
+      </div>
+
+      <button class="btn-start-game" id="btn-start-match">INICIAR PARTIDA</button>
+    </div>
+  </div>
+
+  <!-- Modal: Escolha de Alvo (Sabotagem / Interação) -->
+  <div class="modal-backdrop hidden" id="modal-target">
+    <div class="modal-window">
+      <div class="modal-header">
+        <div style="font-size:28px;" id="target-modal-icon">🎯</div>
+        <div class="modal-title" id="target-modal-title">ESCOLHA UM SETOR ALVO</div>
+        <div class="modal-subtitle" id="target-modal-desc">Selecione qual oponente sofrerá esta ação.</div>
+      </div>
+
+      <div class="targets-grid" id="targets-grid">
+        <!-- Rendered dynamically -->
+      </div>
+
+      <button class="modal-btn-cancel" id="btn-target-cancel">Cancelar Ação</button>
+    </div>
+  </div>
+
+  <!-- Modal: Vitória -->
+  <div class="modal-backdrop hidden" id="modal-victory">
+    <div class="modal-window" style="text-align:center;">
+      <div style="font-size:52px; animation: bounce 1s infinite alternate;">🏆</div>
+      <div class="modal-title" style="color:var(--accent-amber); font-size:28px;">VITÓRIA SUPREMA!</div>
+      <div class="modal-subtitle" id="victory-announcement">O Setor A prevaleceu sobre as intempéries e sabotagens!</div>
+      
+      <div style="background:var(--paper-2); border:2px solid var(--ink-mid); border-radius:5px; padding:16px; margin: 10px 0; display:grid; grid-template-columns: 1fr 1fr; gap:12px; font-size:13px; box-shadow: 2px 2px 0 var(--ink-mid);">
+        <div>
+          <div style="color:var(--ink-light); font-family:var(--font-body);">Total de Rodadas</div>
+          <div style="font-family:var(--font-title); font-size:22px; font-weight:700; color:var(--ink-dark);" id="stat-rounds">04</div>
+        </div>
+        <div>
+          <div style="color:var(--ink-light); font-family:var(--font-body);">PS Final do Campeão</div>
+          <div style="font-family:var(--font-title); font-size:22px; font-weight:700; color:var(--accent-emerald);" id="stat-final-hp">75 PS</div>
+        </div>
+      </div>
+
+      <button class="btn-start-game" id="btn-restart-game">JOGAR NOVAMENTE</button>
+    </div>
+  </div>
+
+  <!-- Game Logic & Three.js Script -->
+  <script>
+    /* =========================================================================
+       1. PROCEDURAL SOUND SYNTHESIZER (Web Audio API)
+       ========================================================================= */
+    class SoundEngine {
+      constructor() {
+        this.ctx = null;
+        this.muted = false;
+      }
+
+      init() {
+        if (!this.ctx) {
+          const AudioContext = window.AudioContext || window.webkitAudioContext;
+          this.ctx = new AudioContext();
+        }
+        if (this.ctx.state === 'suspended') {
+          this.ctx.resume();
+        }
+      }
+
+      playTone(freq, type = 'sine', duration = 0.15, gainVal = 0.2) {
+        if (this.muted) return;
+        this.init();
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+        gain.gain.setValueAtTime(gainVal, this.ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + duration);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start();
+        osc.stop(this.ctx.currentTime + duration);
+      }
+
+      playClick() {
+        this.playTone(800, 'sine', 0.06, 0.12);
+      }
+
+      playDraw() {
+        if (this.muted) return;
+        this.init();
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(260, now);
+        osc.frequency.exponentialRampToValueAtTime(620, now + 0.14);
+        gain.gain.setValueAtTime(0.18, now);
+        gain.gain.linearRampToValueAtTime(0.001, now + 0.16);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start();
+        osc.stop(now + 0.16);
+      }
+
+      playDefense() {
+        if (this.muted) return;
+        this.init();
+        const now = this.ctx.currentTime;
+        [523.25, 659.25, 783.99, 1046.5].forEach((f, idx) => {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(f, now + idx * 0.05);
+          gain.gain.setValueAtTime(0.15, now + idx * 0.05);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.05 + 0.3);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(now + idx * 0.05);
+          osc.stop(now + idx * 0.05 + 0.35);
+        });
+      }
+
+      playSabotage() {
+        if (this.muted) return;
+        this.init();
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(220, now);
+        osc.frequency.linearRampToValueAtTime(90, now + 0.35);
+        gain.gain.setValueAtTime(0.25, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.35);
+      }
+
+      playCoins() {
+        if (this.muted) return;
+        this.init();
+        const now = this.ctx.currentTime;
+        [987.77, 1318.51].forEach((f, i) => {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'square';
+          osc.frequency.setValueAtTime(f, now + i * 0.08);
+          gain.gain.setValueAtTime(0.1, now + i * 0.08);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.08 + 0.15);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(now + i * 0.08);
+          osc.stop(now + i * 0.08 + 0.16);
+        });
+      }
+
+      playDamage() {
+        if (this.muted) return;
+        this.init();
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(140, now);
+        osc.frequency.exponentialRampToValueAtTime(40, now + 0.28);
+        gain.gain.setValueAtTime(0.3, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.3);
+      }
+
+      playVictory() {
+        if (this.muted) return;
+        this.init();
+        const notes = [523.25, 659.25, 783.99, 1046.5, 1318.5];
+        const now = this.ctx.currentTime;
+        notes.forEach((f, i) => {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(f, now + i * 0.12);
+          gain.gain.setValueAtTime(0.2, now + i * 0.12);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.12 + 0.4);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(now + i * 0.12);
+          osc.stop(now + i * 0.12 + 0.45);
+        });
+      }
+    }
+
+    const sound = new SoundEngine();
+
+    /* =========================================================================
+       2. THREE.JS 3D SCENARIO & FLOATING PHYSICS
+       ========================================================================= */
+    const canvas = document.getElementById('game-canvas');
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+    const scene = new THREE.Scene();
+    // Scene background is kept null so the transparent WebGL canvas reveals the CSS daylight sky gradient!
+    scene.fog = new THREE.FogExp2(0xbfe0f7, 0.012);
+
+    // Isometric Camera Setup (Aligned with the interlocking diamond layout)
+    const aspect = window.innerWidth / window.innerHeight;
+    const camera = new THREE.PerspectiveCamera(32, aspect, 0.1, 1000);
+    const ISO_DEFAULT_POS = new THREE.Vector3(0, 27, 28);
+    const cameraFocusPosition = ISO_DEFAULT_POS.clone();
+    const cameraTargetPosition = ISO_DEFAULT_POS.clone();
+    const cameraTransitionStartPosition = ISO_DEFAULT_POS.clone();
+    const cameraLookTarget = new THREE.Vector3(0, -0.6, 0);
+    const cameraFocusLookTarget = new THREE.Vector3(0, -0.6, 0);
+    const cameraTargetLookTarget = new THREE.Vector3(0, -0.6, 0);
+    const cameraTransitionStartLookTarget = new THREE.Vector3(0, -0.6, 0);
+    let cameraTransitionProgress = 1;
+    let cameraTransitionDuration = 0.8;
+    camera.position.copy(ISO_DEFAULT_POS);
+    camera.lookAt(cameraLookTarget);
+
+    function updateCameraFocusToCurrentPlayer() {
+      const current = game && game.getCurrentPlayer ? game.getCurrentPlayer() : null;
+      if (!current) {
+        cameraTargetPosition.copy(ISO_DEFAULT_POS);
+        cameraTargetLookTarget.set(0, -0.6, 0);
+        cameraFocusPosition.copy(ISO_DEFAULT_POS);
+        cameraFocusLookTarget.set(0, -0.6, 0);
+        cameraTransitionProgress = 1;
+        return;
+      }
+
+      const coord = SECTOR_COORDS[current.id] || { x: 0, z: 0 };
+      const desiredX = THREE.MathUtils.clamp(coord.x * 0.9, -11.5, 11.5);
+      const desiredZ = THREE.MathUtils.clamp(18 + coord.z * 0.65, 13, 27);
+      const nextPosition = new THREE.Vector3(desiredX, 17, desiredZ);
+      const nextLookTarget = new THREE.Vector3(coord.x, 0, coord.z);
+      nextLookTarget.y = -0.6;
+
+      const sameTarget = cameraTargetPosition.distanceTo(nextPosition) < 0.01 && cameraTargetLookTarget.distanceTo(nextLookTarget) < 0.01;
+      if (!sameTarget) {
+        cameraTransitionStartPosition.copy(camera.position);
+        cameraTransitionStartLookTarget.copy(cameraLookTarget);
+        cameraTargetPosition.copy(nextPosition);
+        cameraTargetLookTarget.copy(nextLookTarget);
+        cameraFocusPosition.copy(nextPosition);
+        cameraFocusLookTarget.copy(nextLookTarget);
+        cameraTransitionProgress = 0;
+        cameraTransitionDuration = 0.8;
+      }
+    }
+
+    // Daylight Ambient & Sunlight
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.95);
+    scene.add(ambientLight);
+
+    const sunLight = new THREE.DirectionalLight(0xfffaed, 1.35);
+    sunLight.position.set(24, 40, 18);
+    sunLight.castShadow = true;
+    sunLight.shadow.mapSize.width = 2048;
+    sunLight.shadow.mapSize.height = 2048;
+    sunLight.shadow.camera.near = 10;
+    sunLight.shadow.camera.far = 80;
+    const shadowD = 18;
+    sunLight.shadow.camera.left = -shadowD;
+    sunLight.shadow.camera.right = shadowD;
+    sunLight.shadow.camera.top = shadowD;
+    sunLight.shadow.camera.bottom = -shadowD;
+    sunLight.shadow.bias = -0.0005;
+    scene.add(sunLight);
+
+    // Sky bounce fill light (replaces the old dark cyan rim)
+    const skyFillLight = new THREE.DirectionalLight(0xcdeafe, 0.65);
+    skyFillLight.position.set(-20, 15, -20);
+    scene.add(skyFillLight);
+
+    // Fluffy Low-Poly Sky Clouds
+    const skyCloudsGroup = new THREE.Group();
+    scene.add(skyCloudsGroup);
+
+    const cloudMaterial = new THREE.MeshStandardMaterial({
+      color: 0xffffff,
+      roughness: 0.95,
+      metalness: 0.05,
+      flatShading: true,
+      transparent: true,
+      opacity: 0.88
+    });
+
+    function createProceduralCloud(scale = 1.0) {
+      const g = new THREE.Group();
+      const puffGeo = new THREE.DodecahedronGeometry(1.4 * scale, 1);
+      const puffs = [
+        { x: 0, y: 0, z: 0, s: 1.0 },
+        { x: 1.3 * scale, y: -0.2 * scale, z: 0.2 * scale, s: 0.75 },
+        { x: -1.3 * scale, y: -0.15 * scale, z: -0.2 * scale, s: 0.78 },
+        { x: 0.6 * scale, y: 0.5 * scale, z: -0.2 * scale, s: 0.65 },
+        { x: -0.5 * scale, y: 0.4 * scale, z: 0.3 * scale, s: 0.6 }
+      ];
+      puffs.forEach(p => {
+        const m = new THREE.Mesh(puffGeo, cloudMaterial);
+        m.position.set(p.x, p.y, p.z);
+        m.scale.setScalar(p.s);
+        g.add(m);
+      });
+      return g;
+    }
+
+    const clouds = [];
+    const cloudConfigs = [
+      { x: -35, y: 4, z: -25, s: 1.3, speed: 0.012 },
+      { x: 25, y: 8, z: -35, s: 1.6, speed: 0.010 },
+      { x: -15, y: -4, z: -15, s: 1.0, speed: 0.014 },
+      { x: 30, y: -2, z: 10, s: 1.2, speed: 0.011 },
+      { x: -40, y: 6, z: 15, s: 1.4, speed: 0.009 },
+      { x: 8, y: 12, z: -28, s: 1.1, speed: 0.013 }
+    ];
+
+    cloudConfigs.forEach(cfg => {
+      const c = createProceduralCloud(cfg.s);
+      c.position.set(cfg.x, cfg.y, cfg.z);
+      c.userData = { speed: cfg.speed };
+      skyCloudsGroup.add(c);
+      clouds.push(c);
+    });
+
+    // Soft daylight floating breeze motes
+    const breezeGeo = new THREE.BufferGeometry();
+    const breezeCount = 180;
+    const breezePos = new Float32Array(breezeCount * 3);
+    for (let i = 0; i < breezeCount * 3; i += 3) {
+      breezePos[i] = (Math.random() - 0.5) * 80;
+      breezePos[i+1] = Math.random() * 40 - 10;
+      breezePos[i+2] = (Math.random() - 0.5) * 80;
+    }
+    breezeGeo.setAttribute('position', new THREE.BufferAttribute(breezePos, 3));
+    const breezeMat = new THREE.PointsMaterial({
+      color: 0xffffff,
+      size: 0.45,
+      transparent: true,
+      opacity: 0.5
+    });
+    const breezePoints = new THREE.Points(breezeGeo, breezeMat);
+    scene.add(breezePoints);
+
+    /* --- Procedural River & Hexagon Geometry Layout --- */
+    const HEX_RADIUS = 5.2;
+    const HEX_HEIGHT = 2.0;
+
+    // Exact geometric apothem (inradius) for regular flat-topped hexagons: R * sqrt(3) / 2
+    const APOTHEM = HEX_RADIUS * Math.sqrt(3) / 2;
+
+    // 4 Interlocking Hexagons (Seamless contact, zero gaps, diamond cluster layout matching reference):
+    // Setor A: Esquerda (-1.5 * R, 0)
+    // Setor B: Frente / Abaixo (0, +APOTHEM)
+    // Setor C: Fundo / Acima (0, -APOTHEM)
+    // Setor D: Direita (+1.5 * R, 0)
+    const SECTOR_COORDS = [
+      { x: -1.5 * HEX_RADIUS, z: 0 },         // Setor A (Minas & Florestas) - Esquerda
+      { x: 0,                 z:  APOTHEM },   // Setor B (Residencial) - Frente / Abaixo
+      { x: 0,                 z: -APOTHEM },   // Setor C (Industrial) - Fundo / Acima
+      { x:  1.5 * HEX_RADIUS, z: 0 }          // Setor D (Empresarial) - Direita
+    ];
+
+    // Data structure for the 4 3D sectors
+    const sectorMeshes = [];
+    const islandGroup = new THREE.Group();
+    scene.add(islandGroup);
+
+    // Reusable Materials
+    const deadIslandMaterial = new THREE.MeshStandardMaterial({
+      color: 0x64748b,
+      roughness: 0.95,
+      metalness: 0.05
+    });
+
+    // Helper for creating 3D elements
+    function createHexBlock(colorTop, colorSide) {
+      const geo = new THREE.CylinderGeometry(HEX_RADIUS, HEX_RADIUS * 0.92, HEX_HEIGHT, 6);
+      const matTop = new THREE.MeshStandardMaterial({ color: colorTop, roughness: 0.6, metalness: 0.1 });
+      const matSide = new THREE.MeshStandardMaterial({ color: colorSide, roughness: 0.85, metalness: 0.05 });
+      
+      // Multi-material for top, bottom, and sides
+      const hex = new THREE.Mesh(geo, [matSide, matTop, matSide]);
+      hex.rotation.y = Math.PI / 6;
+      hex.castShadow = true;
+      hex.receiveShadow = true;
+      return { mesh: hex, matTop, matSide };
+    }
+
+    // Helper: adiciona uma grade de janelas iluminadas nas 4 faces de um prédio em caixa
+    function addTowerWindows(group, t) {
+      const marginTop = 0.3;
+      const marginBottom = 0.18;
+      const usableH = t.h - marginTop - marginBottom;
+      const floors = Math.max(2, Math.round(usableH / 0.42));
+      const floorSpacing = usableH / floors;
+
+      const winGeo = new THREE.PlaneGeometry(0.13, 0.19);
+      const litMats = [
+        new THREE.MeshStandardMaterial({ color: 0xfff3b0, emissive: 0xffd54a, emissiveIntensity: 0.9, side: THREE.DoubleSide }),
+        new THREE.MeshStandardMaterial({ color: 0xbae6fd, emissive: 0x38bdf8, emissiveIntensity: 0.7, side: THREE.DoubleSide }),
+        new THREE.MeshStandardMaterial({ color: 0x152238, emissive: 0x0f172a, emissiveIntensity: 0.05, side: THREE.DoubleSide })
+      ];
+
+      const faces = [
+        { axis: 'x', sign: 1, faceW: t.d },
+        { axis: 'x', sign: -1, faceW: t.d },
+        { axis: 'z', sign: 1, faceW: t.w },
+        { axis: 'z', sign: -1, faceW: t.w }
+      ];
+
+      faces.forEach(face => {
+        const cols = Math.max(2, Math.round(face.faceW / 0.34));
+        const colSpacing = face.faceW / cols;
+        for (let fl = 0; fl < floors; fl++) {
+          const y = HEX_HEIGHT/2 + marginBottom + floorSpacing * (fl + 0.5);
+          for (let c = 0; c < cols; c++) {
+            const mat = litMats[Math.floor(Math.random() * litMats.length)];
+            const win = new THREE.Mesh(winGeo, mat);
+            const alongOffset = -face.faceW/2 + colSpacing * (c + 0.5);
+            if (face.axis === 'x') {
+              win.position.set(t.x + face.sign * (t.w/2 + 0.006), y, t.z + alongOffset);
+              win.rotation.y = face.sign > 0 ? Math.PI/2 : -Math.PI/2;
+            } else {
+              win.position.set(t.x + alongOffset, y, t.z + face.sign * (t.d/2 + 0.006));
+              win.rotation.y = face.sign > 0 ? 0 : Math.PI;
+            }
+            group.add(win);
+          }
+        }
+      });
+    }
+
+    // Helper: dado um percurso quadrado (centro cx,cz e meia-largura "half"),
+    // retorna posição e direção de deslocamento para uma distância percorrida "dist".
+    // Usado tanto para desenhar as faixas tracejadas quanto para mover o carrinho.
+    function pointOnSquarePath(dist, half, cx, cz) {
+      const side = half * 2;
+      const perim = side * 4;
+      const d = ((dist % perim) + perim) % perim;
+      const corners = [
+        { x: cx - half, z: cz - half },
+        { x: cx + half, z: cz - half },
+        { x: cx + half, z: cz + half },
+        { x: cx - half, z: cz + half }
+      ];
+      const segIdx = Math.floor(d / side);
+      const t = (d % side) / side;
+      const a = corners[segIdx];
+      const b = corners[(segIdx + 1) % 4];
+      return {
+        x: a.x + (b.x - a.x) * t,
+        z: a.z + (b.z - a.z) * t,
+        dx: b.x - a.x,
+        dz: b.z - a.z
+      };
+    }
+
+    /* -------------------------------------------------------------
+       SECTOR A: Minas / Montanhas / Florestas (Verde / Terroso)
+       ------------------------------------------------------------- */
+    function buildSectorA() {
+      const group = new THREE.Group();
+      const base = createHexBlock(0x2d6a4f, 0x4a3728);
+      group.add(base.mesh);
+
+      // Low-poly mountain peaks
+      const mountMat = new THREE.MeshStandardMaterial({ color: 0x52525b, roughness: 0.9, flatShading: true });
+      const snowMat = new THREE.MeshStandardMaterial({ color: 0xf1f5f9, roughness: 0.4, flatShading: true });
+      
+      const peaks = [
+        { x: -1.2, z: -1.0, h: 3.2, r: 1.6 },
+        { x: 0.2, z: -1.6, h: 2.6, r: 1.3 },
+        { x: -1.8, z: 0.3, h: 2.2, r: 1.2 }
+      ];
+      peaks.forEach(p => {
+        const pGeo = new THREE.ConeGeometry(p.r, p.h, 5);
+        const pMesh = new THREE.Mesh(pGeo, mountMat);
+        pMesh.position.set(p.x, HEX_HEIGHT/2 + p.h/2, p.z);
+        pMesh.castShadow = true;
+        group.add(pMesh);
+
+        // Snow cap
+        const sGeo = new THREE.ConeGeometry(p.r * 0.4, p.h * 0.38, 5);
+        const sMesh = new THREE.Mesh(sGeo, snowMat);
+        sMesh.position.set(p.x, HEX_HEIGHT/2 + p.h - (p.h * 0.19), p.z);
+        group.add(sMesh);
+      });
+
+      // Low-poly Pine Trees
+      const trunkMat = new THREE.MeshStandardMaterial({ color: 0x5c3d2e, roughness: 0.9 });
+      const pineMat1 = new THREE.MeshStandardMaterial({ color: 0x1e5128, roughness: 0.8, flatShading: true });
+      const pineMat2 = new THREE.MeshStandardMaterial({ color: 0x2e7d32, roughness: 0.8, flatShading: true });
+
+      const treePositions = [
+        { x: 1.4, z: 0.6 }, { x: 1.9, z: -0.4 }, { x: 0.8, z: 1.4 },
+        { x: -0.9, z: 1.7 }, { x: -1.2, z: 1.8 }, { x: 1.6, z: 1.8 },
+        { x: 2.1, z: 0.8 }, { x: 1.1, z: 0.5 }, { x: -0.9, z: 0.9 }
+      ];
+      treePositions.forEach((pos, i) => {
+        const treeH = 0.9 + (i % 3) * 0.25;
+        // Trunk
+        const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, 0.4, 4), trunkMat);
+        trunk.position.set(pos.x, HEX_HEIGHT/2 + 0.2, pos.z);
+        trunk.castShadow = true;
+        group.add(trunk);
+
+        // Foliage cones (2 tiers)
+        const fMat = i % 2 === 0 ? pineMat1 : pineMat2;
+        const c1 = new THREE.Mesh(new THREE.ConeGeometry(0.5, treeH * 0.6, 5), fMat);
+        c1.position.set(pos.x, HEX_HEIGHT/2 + 0.4 + treeH * 0.3, pos.z);
+        c1.castShadow = true;
+        group.add(c1);
+
+        const c2 = new THREE.Mesh(new THREE.ConeGeometry(0.35, treeH * 0.5, 5), fMat);
+        c2.position.set(pos.x, HEX_HEIGHT/2 + 0.4 + treeH * 0.55, pos.z);
+        c2.castShadow = true;
+        group.add(c2);
+      });
+
+      // Glowing Runic Crystal in the mine
+      const crystalGeo = new THREE.OctahedronGeometry(0.4, 0);
+      const crystalMat = new THREE.MeshStandardMaterial({
+        color: 0x34d399,
+        emissive: 0x10b981,
+        emissiveIntensity: 0.9,
+        roughness: 0.2
+      });
+      const crystal = new THREE.Mesh(crystalGeo, crystalMat);
+      crystal.position.set(-0.8, HEX_HEIGHT/2 + 0.7, 0.2);
+      group.add(crystal);
+
+      // -----------------------------------------------------------
+      // Mina — encravada na base da montanha, entre os picos e a
+      // floresta; representa os recursos minerais que sustentam a
+      // cidade. O grupo é rotacionado para a boca do túnel abrir
+      // de frente para a câmera (senão fica de perfil, escondida).
+      // -----------------------------------------------------------
+      const mineOrigin = new THREE.Group();
+      mineOrigin.position.set(-0.3, 0, -0.2);
+      mineOrigin.rotation.y = -Math.PI / 2; // "frente" local (+X) passa a apontar para +Z (câmera)
+      group.add(mineOrigin);
+
+      // Morro rochoso escavado
+      const mineRockMat = new THREE.MeshStandardMaterial({ color: 0x5b5147, roughness: 0.95, flatShading: true });
+      const mound = new THREE.Mesh(new THREE.DodecahedronGeometry(0.8, 0), mineRockMat);
+      mound.scale.set(1.3, 0.7, 1.05);
+      mound.position.set(0, HEX_HEIGHT/2 + 0.32, 0);
+      mound.rotation.y = 0.5;
+      mound.castShadow = true;
+      mineOrigin.add(mound);
+
+      // Boca escura do túnel
+      const tunnelMat = new THREE.MeshStandardMaterial({ color: 0x0a0a0a, roughness: 1 });
+      const tunnelMouth = new THREE.Mesh(new THREE.CircleGeometry(0.3, 16), tunnelMat);
+      tunnelMouth.position.set(0.5, HEX_HEIGHT/2 + 0.32, 0);
+      tunnelMouth.rotation.y = Math.PI / 2;
+      mineOrigin.add(tunnelMouth);
+
+      // Portal de madeira sustentando a entrada
+      const beamMat = new THREE.MeshStandardMaterial({ color: 0x5c3d2e, roughness: 0.85 });
+      const postGeo = new THREE.CylinderGeometry(0.05, 0.06, 0.6, 6);
+      [-0.2, 0.2].forEach(dz => {
+        const post = new THREE.Mesh(postGeo, beamMat);
+        post.position.set(0.54, HEX_HEIGHT/2 + 0.15, dz);
+        post.castShadow = true;
+        mineOrigin.add(post);
+      });
+      const lintel = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.09, 0.52), beamMat);
+      lintel.position.set(0.54, HEX_HEIGHT/2 + 0.44, 0);
+      lintel.castShadow = true;
+      mineOrigin.add(lintel);
+
+      // Trilhos do vagonete saindo da mina
+      const mineRailMat = new THREE.MeshStandardMaterial({ color: 0x8a8f94, roughness: 0.4, metalness: 0.6 });
+      [-0.09, 0.09].forEach(dz => {
+        const rail = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.02, 0.03), mineRailMat);
+        rail.position.set(0.75, HEX_HEIGHT/2 + 0.05, dz);
+        mineOrigin.add(rail);
+      });
+
+      // Vagonete de minério
+      const cartMat = new THREE.MeshStandardMaterial({ color: 0x4a4a4a, roughness: 0.6, metalness: 0.3 });
+      const cart = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.18, 0.24), cartMat);
+      cart.position.set(0.82, HEX_HEIGHT/2 + 0.16, 0);
+      cart.castShadow = true;
+      mineOrigin.add(cart);
+
+      const cartWheelGeo = new THREE.CylinderGeometry(0.05, 0.05, 0.03, 8);
+      const cartWheelMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1a });
+      [[-0.1, -0.1], [0.1, -0.1], [-0.1, 0.1], [0.1, 0.1]].forEach(([wx, wz]) => {
+        const wheel = new THREE.Mesh(cartWheelGeo, cartWheelMat);
+        wheel.rotation.x = Math.PI / 2;
+        wheel.position.set(0.82 + wx, HEX_HEIGHT/2 + 0.06, wz);
+        mineOrigin.add(wheel);
+      });
+
+      // Minério dourado/âmbar acumulado no vagonete (ecoa a runa dourada do brasão)
+      const oreMat = new THREE.MeshStandardMaterial({ color: 0xc99a3e, emissive: 0x7a5a1c, emissiveIntensity: 0.4, roughness: 0.5 });
+      [[0, -0.04, 0.08], [0.06, -0.02, -0.04], [-0.06, -0.03, 0.02]].forEach(([ox, oy, oz]) => {
+        const ore = new THREE.Mesh(new THREE.DodecahedronGeometry(0.06, 0), oreMat);
+        ore.position.set(0.82 + ox, HEX_HEIGHT/2 + 0.26 + oy, oz);
+        mineOrigin.add(ore);
+      });
+
+      // Pilha de minério bruto ao lado da entrada
+      const orePileMat = new THREE.MeshStandardMaterial({ color: 0x8a8272, roughness: 0.9, flatShading: true });
+      [[0.15, 0.3], [0.3, 0.08], [0.1, -0.28]].forEach(([ox, oz], i) => {
+        const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(0.13 + (i % 2) * 0.04, 0), orePileMat);
+        rock.position.set(ox, HEX_HEIGHT/2 + 0.12, oz);
+        rock.rotation.set(Math.random(), Math.random(), Math.random());
+        mineOrigin.add(rock);
+      });
+
+      return { group, base, crystal };
+    }
+
+    /* -------------------------------------------------------------
+       SETOR B: Residencial (Tons Pastel, Casas, Praças)
+       ------------------------------------------------------------- */
+    function buildSectorB() {
+      const group = new THREE.Group();
+      const base = createHexBlock(0xddb892, 0x7f5539);
+      group.add(base.mesh);
+
+      // House colors (Pastel palette)
+      const wallColors = [0xfef08a, 0xfbcfe8, 0xe0e7ff, 0xfecdd3, 0xdcfce7];
+      const roofColors = [0x991b1b, 0xb45309, 0x1e3a8a, 0x065f46];
+
+      const houseLocations = [
+        { x: -1.4, z: -0.8, rot: 0.3 },
+        { x: -0.4, z: -1.6, rot: -0.2 },
+        { x: 1.0, z: -1.2, rot: 0.8 },
+        { x: 1.6, z: 0.2, rot: -0.5 },
+        { x: 1.2, z: 1.4, rot: 0.4 },
+        { x: -0.2, z: 1.6, rot: -0.3 },
+        { x: -1.6, z: 0.8, rot: 0.6 },
+        { x: -0.2, z: -0.2, rot: 0.0 }
+      ];
+
+      houseLocations.forEach((h, idx) => {
+        const houseGroup = new THREE.Group();
+        const w = 0.8 + (idx % 2) * 0.2;
+        const d = 0.7 + (idx % 3) * 0.15;
+        const height = 0.6 + (idx % 2) * 0.2;
+
+        // Base box
+        const wallMat = new THREE.MeshStandardMaterial({
+          color: wallColors[idx % wallColors.length],
+          roughness: 0.7
+        });
+        const walls = new THREE.Mesh(new THREE.BoxGeometry(w, height, d), wallMat);
+        walls.position.y = height / 2;
+        walls.castShadow = true;
+        walls.receiveShadow = true;
+        houseGroup.add(walls);
+
+        // Roof (Prism)
+        const roofGeo = new THREE.ConeGeometry(Math.max(w, d) * 0.75, 0.45, 4);
+        const roofMat = new THREE.MeshStandardMaterial({
+          color: roofColors[idx % roofColors.length],
+          roughness: 0.6
+        });
+        const roof = new THREE.Mesh(roofGeo, roofMat);
+        roof.position.y = height + 0.22;
+        roof.rotation.y = Math.PI / 4;
+        roof.castShadow = true;
+        houseGroup.add(roof);
+
+        houseGroup.position.set(h.x, HEX_HEIGHT/2, h.z);
+        houseGroup.rotation.y = h.rot;
+        group.add(houseGroup);
+      });
+
+      // Street lamps with warm glowing lights
+      const lampPositions = [{ x: 0.5, z: 0.2 }, { x: -0.8, z: 0.4 }];
+      lampPositions.forEach(p => {
+        const post = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.04, 0.04, 0.8, 6),
+          new THREE.MeshStandardMaterial({ color: 0x334155 })
+        );
+        post.position.set(p.x, HEX_HEIGHT/2 + 0.4, p.z);
+        group.add(post);
+
+        const bulb = new THREE.Mesh(
+          new THREE.SphereGeometry(0.1, 8, 8),
+          new THREE.MeshStandardMaterial({ color: 0xffedd5, emissive: 0xf59e0b, emissiveIntensity: 1.2 })
+        );
+        bulb.position.set(p.x, HEX_HEIGHT/2 + 0.8, p.z);
+        group.add(bulb);
+      });
+
+      return { group, base };
+    }
+
+    /* -------------------------------------------------------------
+       SETOR C: Industrial (Cinza Escuro, Fábricas, Chaminés & Fumaça)
+       ------------------------------------------------------------- */
+    function buildSectorC() {
+      const group = new THREE.Group();
+      const base = createHexBlock(0x334155, 0x1e293b);
+      group.add(base.mesh);
+
+      const metalMat = new THREE.MeshStandardMaterial({ color: 0x475569, metalness: 0.6, roughness: 0.4 });
+      const rustMat = new THREE.MeshStandardMaterial({ color: 0x78350f, roughness: 0.8 });
+      const beaconMat = new THREE.MeshStandardMaterial({ color: 0xff0000, emissive: 0xff3300, emissiveIntensity: 1.5 });
+
+      // Factory halls
+      const factory1 = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.9, 1.4), metalMat);
+      factory1.position.set(-0.8, HEX_HEIGHT/2 + 0.45, -0.6);
+      factory1.castShadow = true;
+      group.add(factory1);
+
+      const factory2 = new THREE.Mesh(new THREE.BoxGeometry(1.6, 1.1, 1.8), rustMat);
+      factory2.position.set(0.9, HEX_HEIGHT/2 + 0.55, 0.4);
+      factory2.castShadow = true;
+      group.add(factory2);
+
+      // Chimneys
+      const chimneys = [];
+      const chimneyConfigs = [
+        { x: -1.6, z: 0.8, r: 0.26, h: 2.6 },
+        { x: -1.0, z: 1.4, r: 0.22, h: 2.2 },
+        { x: 0.2, z: -1.4, r: 0.32, h: 2.8 },
+        { x: 1.5, z: -1.0, r: 0.2, h: 2.0 }
+      ];
+
+      chimneyConfigs.forEach(c => {
+        const chim = new THREE.Mesh(new THREE.CylinderGeometry(c.r * 0.8, c.r, c.h, 12), metalMat);
+        chim.position.set(c.x, HEX_HEIGHT/2 + c.h / 2, c.z);
+        chim.castShadow = true;
+        group.add(chim);
+
+        // Warning light top
+        const light = new THREE.Mesh(new THREE.SphereGeometry(0.08, 6, 6), beaconMat);
+        light.position.set(c.x, HEX_HEIGHT/2 + c.h + 0.05, c.z);
+        group.add(light);
+
+        chimneys.push({ x: c.x, y: HEX_HEIGHT/2 + c.h, z: c.z });
+      });
+
+      // Continuous rising smoke particles
+      const smokeParticles = [];
+      const smokeGeo = new THREE.DodecahedronGeometry(0.12, 0);
+      const smokeMat = new THREE.MeshStandardMaterial({
+        color: 0x94a3b8,
+        transparent: true,
+        opacity: 0.45,
+        roughness: 1.0
+      });
+
+      for (let i = 0; i < 28; i++) {
+        const sm = new THREE.Mesh(smokeGeo, smokeMat);
+        const chim = chimneys[i % chimneys.length];
+        sm.position.set(chim.x, chim.y + Math.random() * 1.5, chim.z);
+        sm.userData = {
+          baseChim: chim,
+          speed: 0.015 + Math.random() * 0.02,
+          driftX: (Math.random() - 0.5) * 0.01,
+          scaleMax: 0.2 + Math.random() * 0.3
+        };
+        group.add(sm);
+        smokeParticles.push(sm);
+      }
+
+      return { group, base, smokeParticles };
+    }
+
+    /* -------------------------------------------------------------
+       SETOR D: Empresarial & Hi-Tech (Azul Reflexivo, Arranha-céus)
+       ------------------------------------------------------------- */
+    function buildSectorD() {
+      const group = new THREE.Group();
+      const base = createHexBlock(0x0f172a, 0x090d16);
+      group.add(base.mesh);
+
+      // Glass / Mirror tower materials
+      const glassMat = new THREE.MeshStandardMaterial({
+        color: 0x0284c7,
+        metalness: 0.85,
+        roughness: 0.15,
+        transparent: true,
+        opacity: 0.95
+      });
+      const neonMat = new THREE.MeshStandardMaterial({
+        color: 0x00f0ff,
+        emissive: 0x00f0ff,
+        emissiveIntensity: 1.5
+      });
+
+      const towers = [
+        { x: -0.6, z: -0.6, w: 1.2, d: 1.2, h: 4.8 },
+        { x: 0.8, z: -0.8, w: 1.0, d: 1.0, h: 3.8 },
+        { x: -1.2, z: 1.0, w: 0.9, d: 1.1, h: 3.2 },
+        { x: 0.6, z: 1.2, w: 1.1, d: 0.9, h: 4.2 },
+        { x: 1.6, z: 0.2, w: 0.8, d: 0.8, h: 2.6 }
+      ];
+
+      let centralTowerTop = 0;
+
+      towers.forEach((t, i) => {
+        const tw = new THREE.Mesh(new THREE.BoxGeometry(t.w, t.h, t.d), glassMat);
+        tw.position.set(t.x, HEX_HEIGHT/2 + t.h/2, t.z);
+        tw.castShadow = true;
+        tw.receiveShadow = true;
+        group.add(tw);
+
+        // Neon roof trim
+        const roofTrim = new THREE.Mesh(new THREE.BoxGeometry(t.w * 1.02, 0.1, t.d * 1.02), neonMat);
+        roofTrim.position.set(t.x, HEX_HEIGHT/2 + t.h, t.z);
+        group.add(roofTrim);
+
+        // Grade de janelas iluminadas nas 4 fachadas
+        addTowerWindows(group, t);
+
+        if (i === 0) centralTowerTop = HEX_HEIGHT/2 + t.h;
+      });
+
+      // -----------------------------------------------------------
+      // Ruas do distrito — anel quadrado contornando a torre central
+      // (towers[0]), com ramais de conexão aos prédios vizinhos
+      // -----------------------------------------------------------
+      const roadMat = new THREE.MeshStandardMaterial({ color: 0x2b2f36, roughness: 0.88, metalness: 0.05 });
+      const roadY = HEX_HEIGHT/2 + 0.011;
+      const squareCX = towers[0].x;
+      const squareCZ = towers[0].z;
+      const squareHalf = 0.75;
+      const roadWidth = 0.22;
+      const roadSpan = squareHalf * 2 + roadWidth;
+
+      const roadSegments = [
+        { x: squareCX, z: squareCZ - squareHalf, w: roadSpan, d: roadWidth },  // norte
+        { x: squareCX, z: squareCZ + squareHalf, w: roadSpan, d: roadWidth },  // sul
+        { x: squareCX - squareHalf, z: squareCZ, w: roadWidth, d: roadSpan },  // oeste
+        { x: squareCX + squareHalf, z: squareCZ, w: roadWidth, d: roadSpan }   // leste
+      ];
+      roadSegments.forEach(seg => {
+        const road = new THREE.Mesh(new THREE.BoxGeometry(seg.w, 0.02, seg.d), roadMat);
+        road.position.set(seg.x, roadY, seg.z);
+        road.receiveShadow = true;
+        group.add(road);
+      });
+
+      // Ramais conectando o quarteirão central aos demais prédios
+      const connectorSegments = [
+        { x: 0.35, z: squareCZ, w: 0.32, d: roadWidth },              // rumo à torre leste
+        { x: squareCX, z: 0.78, w: roadWidth, d: 1.04 }               // rumo às torres ao sul
+      ];
+      connectorSegments.forEach(seg => {
+        const road = new THREE.Mesh(new THREE.BoxGeometry(seg.w, 0.02, seg.d), roadMat);
+        road.position.set(seg.x, roadY, seg.z);
+        road.receiveShadow = true;
+        group.add(road);
+      });
+
+      // Faixa central tracejada (amarela) contornando o quarteirão
+      const dashMat = new THREE.MeshStandardMaterial({ color: 0xf5c518, roughness: 0.6 });
+      const perim = squareHalf * 2 * 4;
+      for (let d = 0; d < perim; d += 0.2) {
+        const p = pointOnSquarePath(d, squareHalf, squareCX, squareCZ);
+        const dash = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.006, 0.03), dashMat);
+        dash.position.set(p.x, roadY + 0.006, p.z);
+        dash.rotation.y = Math.atan2(-p.dz, p.dx);
+        group.add(dash);
+      }
+
+      // Holographic rotating ring atop the headquarters
+      const ringGeo = new THREE.TorusGeometry(0.6, 0.05, 8, 24);
+      const holoRing = new THREE.Mesh(ringGeo, neonMat);
+      holoRing.position.set(-0.6, centralTowerTop + 0.6, -0.6);
+      holoRing.rotation.x = Math.PI / 3;
+      group.add(holoRing);
+
+      return { group, base, holoRing };
+    }
+
+    /* -------------------------------------------------------------
+       TRENZINHO 3D — circula ao redor do Setor A (Minas & Florestas)
+       ------------------------------------------------------------- */
+    function buildForestTrain() {
+      const trainGroup = new THREE.Group();
+      const trackRadius = HEX_RADIUS * 0.62;
+      const trackY = HEX_HEIGHT / 2 + 0.04;
+
+      // Trilho circular (base de madeira/ferro contornando o setor)
+      const trackGeo = new THREE.TorusGeometry(trackRadius, 0.055, 6, 48);
+      const trackMat = new THREE.MeshStandardMaterial({ color: 0x4a3728, roughness: 0.9, metalness: 0.1 });
+      const trackMesh = new THREE.Mesh(trackGeo, trackMat);
+      trackMesh.rotation.x = Math.PI / 2;
+      trackMesh.position.y = trackY;
+      trackMesh.receiveShadow = true;
+      trainGroup.add(trackMesh);
+
+      // Trilhos internos/externos (linhas finas de metal)
+      [trackRadius - 0.09, trackRadius + 0.09].forEach(r => {
+        const railGeo = new THREE.TorusGeometry(r, 0.014, 5, 64);
+        const railMat = new THREE.MeshStandardMaterial({ color: 0x9ca3af, roughness: 0.4, metalness: 0.7 });
+        const rail = new THREE.Mesh(railGeo, railMat);
+        rail.rotation.x = Math.PI / 2;
+        rail.position.y = trackY + 0.02;
+        trainGroup.add(rail);
+      });
+
+      // Composição do trem: locomotiva + 2 vagões
+      const carColors = [0xb5442e, 0x2f6f8b, 0x3f8f4f];
+      const carOffsets = [0, -0.17, -0.34];
+      const cars = [];
+
+      carOffsets.forEach((offset, i) => {
+        const isLoco = i === 0;
+        const carGroup = new THREE.Group();
+
+        const bodyGeo = new THREE.BoxGeometry(isLoco ? 0.5 : 0.4, isLoco ? 0.3 : 0.24, 0.26);
+        const bodyMat = new THREE.MeshStandardMaterial({ color: carColors[i], roughness: 0.5, metalness: 0.25 });
+        const body = new THREE.Mesh(bodyGeo, bodyMat);
+        body.position.y = 0.22;
+        body.castShadow = true;
+        carGroup.add(body);
+
+        if (isLoco) {
+          // Cabine da locomotiva
+          const cabMat = new THREE.MeshStandardMaterial({ color: 0x2b2b2b, roughness: 0.6 });
+          const cab = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.2, 0.24), cabMat);
+          cab.position.set(-0.17, 0.42, 0);
+          cab.castShadow = true;
+          carGroup.add(cab);
+
+          // Chaminé
+          const chimMat = new THREE.MeshStandardMaterial({ color: 0x1c1c1c, roughness: 0.7 });
+          const chim = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.05, 0.18, 6), chimMat);
+          chim.position.set(0.15, 0.46, 0);
+          chim.castShadow = true;
+          carGroup.add(chim);
+
+          // Farol frontal
+          const lampMat = new THREE.MeshStandardMaterial({ color: 0xfff3b0, emissive: 0xffd54a, emissiveIntensity: 0.9 });
+          const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.045, 8, 8), lampMat);
+          lamp.position.set(0.26, 0.28, 0);
+          carGroup.add(lamp);
+        }
+
+        // Rodinhas
+        const wheelGeo = new THREE.CylinderGeometry(0.07, 0.07, 0.045, 10);
+        const wheelMat = new THREE.MeshStandardMaterial({ color: 0x161616, roughness: 0.6 });
+        [[-0.14, -0.14], [0.14, -0.14], [-0.14, 0.14], [0.14, 0.14]].forEach(([wx, wz]) => {
+          const wheel = new THREE.Mesh(wheelGeo, wheelMat);
+          wheel.rotation.x = Math.PI / 2;
+          wheel.position.set(wx, 0.08, wz);
+          carGroup.add(wheel);
+        });
+
+        trainGroup.add(carGroup);
+        cars.push({ mesh: carGroup, offset });
+      });
+
+      return { group: trainGroup, cars, radius: trackRadius, y: trackY };
+    }
+
+    /* -------------------------------------------------------------
+       CARRINHO 3D — roda em volta da torre central do Setor D (Empresarial)
+       ------------------------------------------------------------- */
+    function buildBusinessCar() {
+      const carGroup = new THREE.Group();
+
+      // Carroceria
+      const bodyMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.35, metalness: 0.5 });
+      const body = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.11, 0.14), bodyMat);
+      body.position.y = 0.11;
+      body.castShadow = true;
+      carGroup.add(body);
+
+      // Cabine/vidros
+      const cabinMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.2, metalness: 0.3, transparent: true, opacity: 0.9 });
+      const cabin = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.08, 0.12), cabinMat);
+      cabin.position.set(-0.015, 0.195, 0);
+      cabin.castShadow = true;
+      carGroup.add(cabin);
+
+      // Rodinhas
+      const wheelGeo = new THREE.CylinderGeometry(0.045, 0.045, 0.03, 10);
+      const wheelMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.7 });
+      [[-0.08, -0.075], [0.08, -0.075], [-0.08, 0.075], [0.08, 0.075]].forEach(([wx, wz]) => {
+        const wheel = new THREE.Mesh(wheelGeo, wheelMat);
+        wheel.rotation.x = Math.PI / 2;
+        wheel.position.set(wx, 0.045, wz);
+        carGroup.add(wheel);
+      });
+
+      // Farol dianteiro
+      const headlightMat = new THREE.MeshStandardMaterial({ color: 0xfff9e0, emissive: 0xfff2b0, emissiveIntensity: 1 });
+      const headlight = new THREE.Mesh(new THREE.SphereGeometry(0.025, 8, 8), headlightMat);
+      headlight.position.set(0.135, 0.1, 0);
+      carGroup.add(headlight);
+
+      // Lanterna traseira
+      const taillightMat = new THREE.MeshStandardMaterial({ color: 0xff3b3b, emissive: 0xff1f1f, emissiveIntensity: 1 });
+      const taillight = new THREE.Mesh(new THREE.SphereGeometry(0.02, 8, 8), taillightMat);
+      taillight.position.set(-0.135, 0.1, 0);
+      carGroup.add(taillight);
+
+      return { group: carGroup };
+    }
+
+    // Instantiate 4 Sectors
+    const sectorBuilders = [buildSectorA, buildSectorB, buildSectorC, buildSectorD];
+    const SECTOR_THEMES = [
+      { name: 'Minas & Florestas', color: '#10b981', glow: 'rgba(16, 185, 129, 0.4)', icon: '🌲', prefix: 'Setor A' },
+      { name: 'Residencial', color: '#fb7185', glow: 'rgba(251, 113, 133, 0.4)', icon: '🏡', prefix: 'Setor B' },
+      { name: 'Industrial', color: '#f97316', glow: 'rgba(249, 115, 22, 0.4)', icon: '🏭', prefix: 'Setor C' },
+      { name: 'Empresarial', color: '#38bdf8', glow: 'rgba(56, 189, 248, 0.4)', icon: '🏢', prefix: 'Setor D' }
+    ];
+
+    SECTOR_COORDS.forEach((coord, idx) => {
+      const data = sectorBuilders[idx]();
+      data.group.position.set(coord.x, 0, coord.z);
+      islandGroup.add(data.group);
+
+      sectorMeshes.push({
+        ...data,
+        coord,
+        baseY: 0,
+        phase: idx * (Math.PI / 2),
+        alive: true
+      });
+    });
+
+    // Trenzinho circulando o Setor A (Minas & Florestas)
+    const forestTrain = buildForestTrain();
+    sectorMeshes[0].group.add(forestTrain.group);
+    sectorMeshes[0].forestTrain = forestTrain;
+
+    // Carrinho circulando a torre central do Setor D (Empresarial)
+    const businessCar = buildBusinessCar();
+    sectorMeshes[3].group.add(businessCar.group);
+    sectorMeshes[3].businessCar = {
+      mesh: businessCar.group,
+      squareCX: -0.6,
+      squareCZ: -0.6,
+      squareHalf: 0.85,
+      y: HEX_HEIGHT/2 + 0.06
+    };
+
+    /* --- Geração Procedural da Textura de Água (Canvas) --- */
+    function createWaterTexture() {
+      const canvas = document.createElement('canvas');
+      canvas.width = 256;
+      canvas.height = 256;
+      const ctx = canvas.getContext('2d');
+
+      const bgGradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+      bgGradient.addColorStop(0, 'rgba(24, 135, 210, 0.9)');
+      bgGradient.addColorStop(0.5, 'rgba(16, 96, 180, 0.92)');
+      bgGradient.addColorStop(1, 'rgba(10, 68, 128, 0.96)');
+      ctx.fillStyle = bgGradient;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      for (let row = 0; row < 12; row++) {
+        const baseY = (row + 0.5) * (canvas.height / 12);
+        const freq = 0.05 + Math.random() * 0.06;
+        const phase = Math.random() * Math.PI * 2;
+        const amp = 7 + Math.random() * 8;
+        const alpha = 0.38 + Math.random() * 0.4;
+
+        ctx.beginPath();
+        for (let x = 0; x <= canvas.width; x += 2) {
+          const y = baseY + Math.sin(x * freq + phase) * amp + Math.sin(x * (freq * 1.7)) * (amp * 0.25);
+          if (x === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+        ctx.strokeStyle = `rgba(226, 242, 255, ${alpha})`;
+        ctx.lineWidth = 2.7;
+        ctx.stroke();
+      }
+
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+      for (let i = 0; i < 70; i++) {
+        const x = Math.random() * canvas.width;
+        const y = Math.random() * canvas.height;
+        const r = Math.random() * 2 + 0.5;
+        ctx.beginPath();
+        ctx.ellipse(x, y, r * 2.1, r, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      const texture = new THREE.CanvasTexture(canvas);
+      texture.wrapS = THREE.RepeatWrapping;
+      texture.wrapT = THREE.RepeatWrapping;
+      texture.repeat.set(6, 1);
+      return texture;
+    }
+
+    const riverTexture = createWaterTexture();
+
+    function createRippleTexture() {
+      const canvas = document.createElement('canvas');
+      canvas.width = 256;
+      canvas.height = 256;
+      const ctx = canvas.getContext('2d');
+      const cx = canvas.width / 2;
+      const cy = canvas.height / 2;
+      const maxR = Math.hypot(cx, cy);
+
+      const bgGradient = ctx.createRadialGradient(cx, cy, 0, cx, cy, maxR);
+      bgGradient.addColorStop(0, 'rgba(20, 120, 180, 0.86)');
+      bgGradient.addColorStop(1, 'rgba(10, 70, 130, 0.92)');
+      ctx.fillStyle = bgGradient;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      for (let i = 1; i <= 8; i++) {
+        const r = i * (maxR / 9);
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, 0, Math.PI * 2);
+        ctx.strokeStyle = `rgba(220, 240, 255, ${0.45 * (1 - i / 10)})`;
+        ctx.lineWidth = 2.5;
+        ctx.stroke();
+      }
+
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+      for (let i = 0; i < 30; i++) {
+        const ang = Math.random() * Math.PI * 2;
+        const rad = Math.random() * maxR;
+        const x = cx + Math.cos(ang) * rad;
+        const y = cy + Math.sin(ang) * rad;
+        const r = Math.random() * 1.6 + 0.5;
+        ctx.beginPath();
+        ctx.ellipse(x, y, r * 2, r, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      return new THREE.CanvasTexture(canvas);
+    }
+
+    const riverJointTexture = createRippleTexture();
+
+    /* --- Continuous Single River Along Shared Seams (Matching Reference Image) --- */
+    const riverGroup = new THREE.Group();
+    islandGroup.add(riverGroup);
+
+    // Glowing River Water Material — estética glassmorphism/vidro
+    const riverMaterial = new THREE.MeshPhysicalMaterial({
+      map: riverTexture,
+      color: 0x8fe8ff,
+      emissive: 0x0077b6,
+      emissiveIntensity: 0.22,
+      roughness: 0.18,
+      metalness: 0.04,
+      clearcoat: 0.9,
+      clearcoatRoughness: 0.12,
+      transparent: true,
+      opacity: 0.96
+    });
+
+    const riverJointMaterial = riverMaterial.clone();
+    riverJointMaterial.map = riverJointTexture;
+    riverJointMaterial.color = new THREE.Color(0x7fe0ff);
+    riverJointMaterial.clearcoatRoughness = 0.28;
+
+    /* --- Textura procedural de queda d'água (listras verticais + espuma) --- */
+    function createWaterfallTexture() {
+      const canvas = document.createElement('canvas');
+      canvas.width = 128;
+      canvas.height = 256;
+      const ctx = canvas.getContext('2d');
+
+      const bg = ctx.createLinearGradient(0, 0, 0, canvas.height);
+      bg.addColorStop(0, 'rgba(200, 240, 255, 0.5)');
+      bg.addColorStop(1, 'rgba(70, 170, 220, 0.88)');
+      ctx.fillStyle = bg;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      for (let i = 0; i < 30; i++) {
+        const x = Math.random() * canvas.width;
+        const w = 1 + Math.random() * 2.5;
+        const alpha = 0.25 + Math.random() * 0.5;
+        ctx.fillStyle = `rgba(255,255,255,${alpha})`;
+        ctx.fillRect(x, 0, w, canvas.height);
+      }
+
+      ctx.fillStyle = 'rgba(255,255,255,0.85)';
+      for (let i = 0; i < 45; i++) {
+        const x = Math.random() * canvas.width;
+        const y = canvas.height * 0.72 + Math.random() * canvas.height * 0.28;
+        const r = Math.random() * 2.2 + 0.6;
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      const texture = new THREE.CanvasTexture(canvas);
+      texture.wrapS = THREE.RepeatWrapping;
+      texture.wrapT = THREE.RepeatWrapping;
+      texture.repeat.set(1, 2);
+      return texture;
+    }
+
+    const waterfallTexture = createWaterfallTexture();
+
+    const waterfallMaterial = new THREE.MeshPhysicalMaterial({
+      map: waterfallTexture,
+      color: 0xbfe9ff,
+      emissive: 0x3fc7ff,
+      emissiveIntensity: 0.35,
+      roughness: 0.1,
+      metalness: 0.05,
+      clearcoat: 0.5,
+      clearcoatRoughness: 0.25,
+      transparent: true,
+      opacity: 0.82,
+      side: THREE.DoubleSide
+    });
+
+    const waterfallBases = [];
+
+    // Dark Stone Riverbed/Embankment Material
+    const riverBedMaterial = new THREE.MeshStandardMaterial({
+      color: 0x9fe5ff,
+      roughness: 0.8,
+      metalness: 0.1,
+      transparent: true,
+      opacity: 0.0
+    });
+
+    const RIVER_WIDTH = 0.82;
+    const RIVER_HEIGHT = 0.14;
+    const BED_WIDTH = 1.08;
+    const BED_HEIGHT = 0.08;
+    const RIVER_Y = HEX_HEIGHT / 2 + 0.07;
+    const BED_Y = HEX_HEIGHT / 2 + 0.02;
+
+    // Seam Contact Vertices:
+    // P0: Outer edge between Left & Bottom: (-HEX_RADIUS, APOTHEM)
+    // P1: Junction between Left, Top, and Bottom: (-HEX_RADIUS / 2, 0)
+    // P2: Junction between Top, Bottom, and Right: (HEX_RADIUS / 2, 0)
+    // P3: Outer edge between Top & Right: (HEX_RADIUS, -APOTHEM)
+    const P0 = new THREE.Vector2(-HEX_RADIUS, APOTHEM);
+    const P1 = new THREE.Vector2(-HEX_RADIUS / 2, 0);
+    const P2 = new THREE.Vector2(HEX_RADIUS / 2, 0);
+    const P3 = new THREE.Vector2(HEX_RADIUS, -APOTHEM);
+
+    // Outer river extensions slightly off the cliffs
+    const EXT_LEN = 0.7;
+    const dir0 = new THREE.Vector2().subVectors(P0, P1).normalize();
+    const P_START = new THREE.Vector2().addVectors(P0, dir0.clone().multiplyScalar(EXT_LEN));
+
+    const dir3 = new THREE.Vector2().subVectors(P3, P2).normalize();
+    const P_END = new THREE.Vector2().addVectors(P3, dir3.clone().multiplyScalar(EXT_LEN));
+
+    function createRiverSegment(pA, pB) {
+      const dx = pB.x - pA.x;
+      const dz = pB.y - pA.y;
+      const len = Math.hypot(dx, dz);
+      const angle = Math.atan2(dz, dx);
+      const midX = (pA.x + pB.x) / 2;
+      const midZ = (pA.y + pB.y) / 2;
+
+      // Dark bed under river
+      const bedGeo = new THREE.BoxGeometry(len + 0.04, BED_HEIGHT, BED_WIDTH);
+      const bed = new THREE.Mesh(bedGeo, riverBedMaterial);
+      bed.position.set(midX, BED_Y, midZ);
+      bed.rotation.y = -angle;
+      riverGroup.add(bed);
+
+      // Luminous Water Ribbon
+      const waterGeo = new THREE.BoxGeometry(len + 0.04, RIVER_HEIGHT, RIVER_WIDTH);
+      const water = new THREE.Mesh(waterGeo, riverMaterial);
+      water.position.set(midX, RIVER_Y, midZ);
+      water.rotation.y = -angle;
+      riverGroup.add(water);
+    }
+
+    function createRiverJoint(pos, isEndCap = false) {
+      // Bed joint
+      const bedJoint = new THREE.Mesh(
+        new THREE.CylinderGeometry(BED_WIDTH / 2, BED_WIDTH / 2, BED_HEIGHT, 16),
+        riverBedMaterial
+      );
+      bedJoint.position.set(pos.x, BED_Y, pos.y);
+      riverGroup.add(bedJoint);
+
+      // Water joint — agora usando riverJointMaterial (sem textura distorcida)
+      const waterJoint = new THREE.Mesh(
+        new THREE.CylinderGeometry(RIVER_WIDTH / 2, RIVER_WIDTH / 2, RIVER_HEIGHT, 16),
+        riverJointMaterial
+      );
+      waterJoint.position.set(pos.x, RIVER_Y, pos.y);
+      riverGroup.add(waterJoint);
+
+      if (isEndCap) {
+        const wf = new THREE.Mesh(
+          new THREE.BoxGeometry(RIVER_WIDTH * 0.95, 1.4, 0.12),
+          waterfallMaterial
+        );
+        wf.position.set(pos.x, RIVER_Y - 0.7, pos.y);
+        riverGroup.add(wf);
+
+        waterfallBases.push({ x: pos.x, y: RIVER_Y - 1.4, z: pos.y });
+      }
+    }
+
+    // Build the 3 continuous river segments
+    createRiverSegment(P_START, P1);  // Segment 1: Bottom-Left diagonal up-right
+    createRiverSegment(P1, P2);       // Segment 2: Central horizontal connecting line
+    createRiverSegment(P2, P_END);    // Segment 3: Top-Right diagonal up-right
+
+    // Build elbow joints and rounded ends
+    createRiverJoint(P_START, true);  // Waterfall at start
+    createRiverJoint(P1, false);     // Elbow joint 1
+    createRiverJoint(P2, false);     // Elbow joint 2
+    createRiverJoint(P_END, true);    // Waterfall at end
+
+    /* --- Névoa/Respingo nas Bases das Cachoeiras --- */
+    const mistCount = 70;
+    const mistGeo = new THREE.BufferGeometry();
+    const mistPos = new Float32Array(mistCount * 3);
+    const mistUserData = [];
+
+    for (let i = 0; i < mistCount; i++) {
+      const base = waterfallBases[i % waterfallBases.length];
+      const ix = i * 3;
+      mistPos[ix]     = base.x + (Math.random() - 0.5) * RIVER_WIDTH;
+      mistPos[ix + 1] = base.y + Math.random() * 0.4;
+      mistPos[ix + 2] = base.z + (Math.random() - 0.5) * 0.3;
+
+      mistUserData.push({
+        base,
+        speed: 0.01 + Math.random() * 0.015,
+        driftX: (Math.random() - 0.5) * 0.006,
+        driftZ: (Math.random() - 0.5) * 0.006,
+        life: Math.random()
+      });
+    }
+    mistGeo.setAttribute('position', new THREE.BufferAttribute(mistPos, 3));
+
+    const mistMat = new THREE.PointsMaterial({
+      color: 0xe0f7ff,
+      size: 0.18,
+      transparent: true,
+      opacity: 0.75,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending
+    });
+    const waterfallMist = new THREE.Points(mistGeo, mistMat);
+    riverGroup.add(waterfallMist);
+
+    const splashRings = [];
+    waterfallBases.forEach(base => {
+      const ring = new THREE.Mesh(
+        new THREE.RingGeometry(RIVER_WIDTH * 0.3, RIVER_WIDTH * 0.55, 24),
+        new THREE.MeshBasicMaterial({ color: 0xe0f7ff, transparent: true, opacity: 0.5, side: THREE.DoubleSide })
+      );
+      ring.rotation.x = -Math.PI / 2;
+      ring.position.set(base.x, base.y + 0.02, base.z);
+      riverGroup.add(ring);
+      splashRings.push(ring);
+    });
+
+    // Build subtle groove lines along the other two dry contact seams (Left-Top and Bottom-Right)
+    const seamMaterial = new THREE.MeshStandardMaterial({
+      color: 0xa9e8ff,
+      roughness: 0.95,
+      transparent: true,
+      opacity: 0.0
+    });
+    function createDrySeam(pA, pB) {
+      const dx = pB.x - pA.x;
+      const dz = pB.y - pA.y;
+      const len = Math.hypot(dx, dz);
+      const angle = Math.atan2(dz, dx);
+      const seam = new THREE.Mesh(
+        new THREE.BoxGeometry(len, 0.05, 0.2),
+        seamMaterial
+      );
+      seam.position.set((pA.x + pB.x) / 2, HEX_HEIGHT / 2 + 0.01, (pA.y + pB.y) / 2);
+      seam.rotation.y = -angle;
+      riverGroup.add(seam);
+    }
+    createDrySeam(new THREE.Vector2(-HEX_RADIUS, -APOTHEM), P1);
+    createDrySeam(P2, new THREE.Vector2(HEX_RADIUS, APOTHEM));
+
+    /* --- Environmental Weather Visual FX in Three.js --- */
+    const weatherParticleCount = 400;
+    const weatherGeo = new THREE.BufferGeometry();
+    const weatherPos = new Float32Array(weatherParticleCount * 3);
+    for (let i = 0; i < weatherParticleCount * 3; i += 3) {
+      weatherPos[i] = (Math.random() - 0.5) * 35;
+      weatherPos[i+1] = Math.random() * 30 + 2;
+      weatherPos[i+2] = (Math.random() - 0.5) * 35;
+    }
+    weatherGeo.setAttribute('position', new THREE.BufferAttribute(weatherPos, 3));
+    const weatherMat = new THREE.PointsMaterial({
+      color: 0x22c55e,
+      size: 0.35,
+      transparent: true,
+      opacity: 0.0
+    });
+    const weatherParticles = new THREE.Points(weatherGeo, weatherMat);
+    scene.add(weatherParticles);
+
+    /* =========================================================================
+       3. GAME ENGINE, CARDS & RULES
+       ========================================================================= */
+
+    // Card Definitions
+    const CARD_CATALOG = [
+      {
+        id: 'filtro_rio',
+        name: 'Filtro de Rio',
+        cost: 4,
+        type: 'defesa',
+        color: '#10b981',
+        icon: '🌊',
+        desc: 'Filtra as águas correntes. Reduz em 15 PS o dano da intempérie da rodada atual.',
+        shield: 15
+      },
+      {
+        id: 'painel_solar',
+        name: 'Painel Solar',
+        cost: 5,
+        type: 'defesa',
+        color: '#f59e0b',
+        icon: '☀️',
+        desc: 'Energia limpa imediata: concede +4 Créditos e reduz em 15 PS o dano climático.',
+        shield: 15,
+        bonusCredits: 4
+      },
+      {
+        id: 'barreira_eco',
+        name: 'Barreira Ecológica',
+        cost: 7,
+        type: 'defesa',
+        color: '#38bdf8',
+        icon: '🛡️',
+        desc: 'Cúpula protetora de alta tecnologia. Absorve 25 PS de dano do evento climático da rodada.',
+        shield: 25
+      },
+      {
+        id: 'envenenar_rio',
+        name: 'Envenenar Rio',
+        cost: 8,
+        type: 'sabotagem',
+        color: '#a855f7',
+        icon: '☣️',
+        desc: 'Contamina a malha hídrica! Retira imediatamente -15 PS de TODOS os outros setores vivos.',
+        massDamage: 15
+      },
+      {
+        id: 'destruir_gadget',
+        name: 'Destruir Gadget',
+        cost: 5,
+        type: 'sabotagem',
+        color: '#f43f5e',
+        icon: '💥',
+        desc: 'Escolha um oponente: anula o escudo de defesa dele nesta rodada ou descarta uma carta da mão.',
+        requiresTarget: true,
+        action: 'destroy_gadget'
+      },
+      {
+        id: 'taxar_setor',
+        name: 'Taxar Setor',
+        cost: 4,
+        type: 'economia',
+        color: '#fbbf24',
+        icon: '💰',
+        desc: 'Auditoria fiscal agressiva: rouba 5 Créditos do setor oponente escolhido.',
+        requiresTarget: true,
+        action: 'tax_sector'
+      },
+      {
+        id: 'bloquear_turno',
+        name: 'Bloquear Turno',
+        cost: 7,
+        type: 'controle',
+        color: '#ec4899',
+        icon: '🔒',
+        desc: 'Interrompe os sistemas de um oponente: ele perde a vez de jogar cartas no seu próximo turno.',
+        requiresTarget: true,
+        action: 'block_turn'
+      }
+    ];
+
+    // Environmental Events
+    const CLIMATE_EVENTS = [
+      {
+        name: 'Chuva Ácida',
+        icon: '🌧️',
+        color: '#84cc16',
+        desc: 'Precipitação corrosiva dissolve telhados, acidifica o rio e desgasta a infraestrutura.',
+        particleColor: 0x84cc16
+      },
+      {
+        name: 'Seca Extrema',
+        icon: '🏜️',
+        color: '#f59e0b',
+        desc: 'Reservatórios em níveis críticos e sobrecarga extrema nos sistemas de refrigeração.',
+        particleColor: 0xf59e0b
+      },
+      {
+        name: 'Onda de Calor Tóxica',
+        icon: '🔥',
+        color: '#f97316',
+        desc: 'Gases estufa superaquecidos reduzem a eficiência energética e degradam a biosfera.',
+        particleColor: 0xf97316
+      },
+      {
+        name: 'Tempestade Iônica',
+        icon: '⚡',
+        color: '#38bdf8',
+        desc: 'Descargas eletromagnéticas instabilizam condutores e causam curto-circuitos graves.',
+        particleColor: 0x38bdf8
+      },
+      {
+        name: 'Nevasca Tóxica',
+        icon: '❄️',
+        color: '#c084fc',
+        desc: 'Cinzas químicas congeladas cobrem as placas solares e congelam as fendas do rio.',
+        particleColor: 0xc084fc
+      }
+    ];
+
+    class GameEngine {
+      constructor() {
+        this.round = 1;
+        this.currentPlayerIdx = 0;
+        this.currentEvent = null;
+        this.eventDamage = 10;
+        this.players = [];
+        this.pendingCardAction = null;
+        this.isMatchRunning = false;
+      }
+
+      initPlayers(customNames) {
+        this.players = SECTOR_THEMES.map((theme, i) => ({
+          id: i,
+          sectorPrefix: theme.prefix,
+          sectorName: theme.name,
+          color: theme.color,
+          glow: theme.glow,
+          icon: theme.icon,
+          playerName: customNames[i] || `Jogador ${i + 1}`,
+          hp: 100,
+          credits: 10,
+          hand: [],
+          defenseActive: 0,
+          isBlocked: false,
+          isAlive: true
+        }));
+
+        // Draw initial 2 cards for each player
+        this.players.forEach(p => {
+          p.hand.push(this.getRandomCard());
+          p.hand.push(this.getRandomCard());
+        });
+
+        this.round = 1;
+        this.currentPlayerIdx = 0;
+        this.isMatchRunning = true;
+        this.startNewRound();
+      }
+
+      getRandomCard() {
+        const template = CARD_CATALOG[Math.floor(Math.random() * CARD_CATALOG.length)];
+        return { ...template, uid: Math.random().toString(36).substr(2, 9) };
+      }
+
+      startNewRound() {
+        this.eventDamage = 10 + (this.round - 1) * 4;
+        this.currentEvent = CLIMATE_EVENTS[Math.floor(Math.random() * CLIMATE_EVENTS.length)];
+
+        // Generate income: 10% of current PS for all alive players
+        this.players.forEach(p => {
+          if (p.isAlive) {
+            const income = Math.max(1, Math.round(p.hp * 0.1));
+            p.credits += income;
+            p.defenseActive = 0; // reset defenses for the new round
+          }
+        });
+
+        addLog(`=== [RODADA ${this.round}] === Nova rodada iniciada!`, 'event');
+        addLog(`Intempérie: [${this.currentEvent.name}] se aproxima! Dano base: ${this.eventDamage} PS.`, 'event');
+        addLog(`Setores receberam Créditos correspondentes a 10% de sua Sustentabilidade.`, 'defense');
+
+        // Update weather particle effects
+        weatherMat.color.setHex(this.currentEvent.particleColor);
+        weatherMat.opacity = 0.55;
+
+        // Sound alert
+        sound.playTone(330, 'sawtooth', 0.3, 0.2);
+
+        // Find first alive player starting from index 0
+        this.currentPlayerIdx = this.players.findIndex(p => p.isAlive);
+        this.checkCurrentTurnStatus();
+        updateUI();
+      }
+
+      checkCurrentTurnStatus() {
+        const current = this.getCurrentPlayer();
+        if (!current) return;
+
+        if (current.isBlocked) {
+          addLog(`[${current.playerName}] está com status BLOQUEADO e não pode jogar cartas nesta rodada!`, 'damage');
+        }
+      }
+
+      getCurrentPlayer() {
+        return this.players[this.currentPlayerIdx];
+      }
+
+      buyCard() {
+        const p = this.getCurrentPlayer();
+        if (!p || !p.isAlive || p.isBlocked) return;
+        const BUY_COST = 4;
+        if (p.credits < BUY_COST) {
+          addLog(`Créditos insuficientes! Comprar carta custa 4⚡.`, 'damage');
+          return;
+        }
+        if (p.hand.length >= 7) {
+          addLog(`Mão cheia! Limite de 7 cartas atingido.`, 'damage');
+          return;
+        }
+
+        p.credits -= BUY_COST;
+        const newCard = this.getRandomCard();
+        p.hand.push(newCard);
+        sound.playDraw();
+        addLog(`[${p.playerName}] comprou uma nova carta: "${newCard.name}".`, 'actor');
+        updateUI();
+      }
+
+      playCard(cardUid) {
+        const p = this.getCurrentPlayer();
+        if (!p || !p.isAlive || p.isBlocked) return;
+
+        const cardIdx = p.hand.findIndex(c => c.uid === cardUid);
+        if (cardIdx === -1) return;
+        const card = p.hand[cardIdx];
+
+        if (p.credits < card.cost) {
+          addLog(`Créditos insuficientes para jogar "${card.name}" (Custo: ${card.cost}⚡).`, 'damage');
+          return;
+        }
+
+        // If card requires picking a target
+        if (card.requiresTarget) {
+          this.pendingCardAction = { card, cardIdx };
+          openTargetModal(card);
+          return;
+        }
+
+        // Spend credits and remove card
+        p.credits -= card.cost;
+        p.hand.splice(cardIdx, 1);
+
+        // Execute Immediate non-targeted card logic
+        if (card.shield) {
+          p.defenseActive += card.shield;
+          sound.playDefense();
+          addLog(`[${p.playerName}] ativou "${card.name}" (+${card.shield} Defesa contra intempérie).`, 'defense');
+          spawnFCT(p.id, `+${card.shield}🛡️`, '#38bdf8');
+        }
+
+        if (card.bonusCredits) {
+          p.credits += card.bonusCredits;
+          sound.playCoins();
+          addLog(`[${p.playerName}] recebeu +${card.bonusCredits} Créditos do Painel Solar!`, 'defense');
+          spawnFCT(p.id, `+${card.bonusCredits}⚡`, '#fbbf24');
+        }
+
+        if (card.massDamage) {
+          sound.playSabotage();
+          addLog(`[${p.playerName}] jogou ENVENENAR RIO! Todos os outros setores sofreram -15 PS!`, 'sabotage');
+          triggerCameraShake();
+          this.players.forEach(other => {
+            if (other.id !== p.id && other.isAlive) {
+              other.hp -= card.massDamage;
+              spawnFCT(other.id, `-${card.massDamage} PS ☣️`, '#a855f7');
+              if (other.hp <= 0) {
+                this.eliminatePlayer(other);
+              }
+            }
+          });
+        }
+
+        updateUI();
+        this.checkVictoryCondition();
+      }
+
+      executeTargetedCard(targetPlayerId) {
+        if (!this.pendingCardAction) return;
+        const { card, cardIdx } = this.pendingCardAction;
+        const p = this.getCurrentPlayer();
+        const target = this.players[targetPlayerId];
+
+        if (!p || !target || !target.isAlive) return;
+
+        // Spend cost and remove card
+        p.credits -= card.cost;
+        p.hand.splice(cardIdx, 1);
+        this.pendingCardAction = null;
+
+        if (card.action === 'tax_sector') {
+          sound.playCoins();
+          const stolen = Math.min(5, target.credits);
+          target.credits -= stolen;
+          p.credits += stolen;
+          addLog(`[${p.playerName}] taxou [${target.playerName}] e roubou ${stolen} Créditos!`, 'sabotage');
+          spawnFCT(target.id, `-${stolen}⚡`, '#f43f5e');
+          spawnFCT(p.id, `+${stolen}⚡`, '#fbbf24');
+        } else if (card.action === 'destroy_gadget') {
+          sound.playSabotage();
+          if (target.defenseActive > 0) {
+            const destroyedVal = target.defenseActive;
+            target.defenseActive = 0;
+            addLog(`[${p.playerName}] destruiu o Gadget de Defesa de [${target.playerName}] (${destroyedVal} escudo anulado)!`, 'sabotage');
+            spawnFCT(target.id, `Escudo Anulado!`, '#f43f5e');
+          } else if (target.hand.length > 0) {
+            const discIdx = Math.floor(Math.random() * target.hand.length);
+            const discarded = target.hand.splice(discIdx, 1)[0];
+            addLog(`[${p.playerName}] sabotou [${target.playerName}] e descartou "${discarded.name}" da mão dele!`, 'sabotage');
+            spawnFCT(target.id, `Carta Descartada!`, '#f43f5e');
+          } else {
+            addLog(`[${p.playerName}] usou Destruir Gadget em [${target.playerName}], mas ele não tinha defesas ativas nem cartas.`, 'sabotage');
+          }
+        } else if (card.action === 'block_turn') {
+          sound.playSabotage();
+          target.isBlocked = true;
+          addLog(`[${p.playerName}] BLOQUEOU o turno de [${target.playerName}]! Ele não poderá jogar cartas na sua próxima vez.`, 'sabotage');
+          spawnFCT(target.id, `BLOQUEADO 🔒`, '#ef4444');
+        }
+
+        closeTargetModal();
+        updateUI();
+      }
+
+      endTurn() {
+        const p = this.getCurrentPlayer();
+        if (!p) return;
+
+        // Apply environmental event resolution to current player
+        const netDmg = Math.max(0, this.eventDamage - p.defenseActive);
+        if (netDmg > 0) {
+          p.hp -= netDmg;
+          sound.playDamage();
+          addLog(`[${p.playerName}] sofreu ${netDmg} de dano da intempérie (${this.currentEvent.name}). PS restante: ${Math.max(0, p.hp)}.`, 'damage');
+          spawnFCT(p.id, `-${netDmg} PS`, '#f43f5e');
+        } else {
+          sound.playTone(880, 'sine', 0.2, 0.1);
+          addLog(`[${p.playerName}] mitigou 100% do dano da intempérie com suas defesas ecológicas!`, 'defense');
+          spawnFCT(p.id, `DEFENDIDO!`, '#10b981');
+        }
+
+        // Clear blocked state if they were blocked this turn
+        if (p.isBlocked) {
+          p.isBlocked = false;
+        }
+
+        // Check if player died
+        if (p.hp <= 0) {
+          this.eliminatePlayer(p);
+        }
+
+        if (this.checkVictoryCondition()) return;
+
+        // Advance to next alive player
+        let nextIdx = (this.currentPlayerIdx + 1) % this.players.length;
+        let loopedRounds = false;
+
+        // Check if completed round cycle
+        if (nextIdx <= this.currentPlayerIdx) {
+          loopedRounds = true;
+        }
+
+        while (!this.players[nextIdx].isAlive) {
+          nextIdx = (nextIdx + 1) % this.players.length;
+          if (nextIdx === 0) loopedRounds = true;
+        }
+
+        this.currentPlayerIdx = nextIdx;
+
+        if (loopedRounds) {
+          this.round++;
+          this.startNewRound();
+        } else {
+          this.checkCurrentTurnStatus();
+          sound.playClick();
+          updateUI();
+        }
+      }
+
+      eliminatePlayer(player) {
+        player.hp = 0;
+        player.isAlive = false;
+        player.hand = [];
+        sound.playDamage();
+        addLog(`☠️ [${player.playerName}] (${player.sectorPrefix}) foi totalmente desestabilizado e ELIMINADO!`, 'damage');
+        spawnFCT(player.id, `ELIMINADO!`, '#991b1b');
+        visuallyMarkEliminated(player.id);
+      }
+
+      checkVictoryCondition() {
+        const alivePlayers = this.players.filter(p => p.isAlive);
+        if (alivePlayers.length <= 1 && this.isMatchRunning) {
+          this.isMatchRunning = false;
+          const winner = alivePlayers[0] || this.players[0];
+          showVictoryScreen(winner, this.round);
+          return true;
+        }
+        return false;
+      }
+    }
+
+    const game = new GameEngine();
+
+    /* =========================================================================
+       MULTIPLAYER ONLINE (Salas com código via Firebase Firestore)
+       ========================================================================= */
+
+    // 1) Cole aqui a configuração do SEU projeto Firebase (Firebase Console >
+    //    Configurações do Projeto > Seus apps > SDK setup and configuration).
+    //    2) No Firestore Database, crie o banco em "modo de teste" para começar.
+    const firebaseConfig = {
+      apiKey: "AIzaSyA-uStAhXIZGz-h0AQnca0E4tUvGacWGaw",
+      authDomain: "pedra-runa-5df80.firebaseapp.com",
+      projectId: "pedra-runa-5df80",
+      storageBucket: "pedra-runa-5df80.firebasestorage.app",
+      messagingSenderId: "835560810576",
+      appId: "1:835560810576:web:e80ca3fab0943d0cedc955"
+    };
+
+    let db = null;
+    try {
+      firebase.initializeApp(firebaseConfig);
+      db = firebase.firestore();
+    } catch (e) {
+      console.warn('Firebase não configurado ainda:', e);
+    }
+
+    let onlineMode = false;
+    let myPlayerId = null;      // índice do MEU jogador (0-3)
+    let isHost = false;
+    let roomCode = null;
+    let roomUnsub = null;
+    let localVersion = -1;      // última versão de estado já aplicada
+    let onlineNames = [];       // nomes na ordem de entrada (assento = índice)
+
+    function canAct() {
+      if (!onlineMode) return true; // modo hot-seat: sempre pode agir
+      return game.currentPlayerIdx === myPlayerId;
+    }
+
+    function generateRoomCode() {
+      const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // sem O/0/I/1 (evita confusão)
+      let code = '';
+      for (let i = 0; i < 5; i++) code += chars[Math.floor(Math.random() * chars.length)];
+      return code;
+    }
+
+    function serializeGameState() {
+      return {
+        round: game.round,
+        currentPlayerIdx: game.currentPlayerIdx,
+        currentEvent: game.currentEvent,
+        eventDamage: game.eventDamage,
+        isMatchRunning: game.isMatchRunning,
+        players: game.players.map(p => ({ ...p, hand: p.hand.map(c => ({ ...c })) }))
+      };
+    }
+
+    function loadGameState(state) {
+      game.round = state.round;
+      game.currentPlayerIdx = state.currentPlayerIdx;
+      game.currentEvent = state.currentEvent;
+      game.eventDamage = state.eventDamage;
+      game.isMatchRunning = state.isMatchRunning;
+      game.players = state.players;
+      game.pendingCardAction = null;
+    }
+
+    // Envia o estado atual para o Firestore depois que EU fiz uma jogada
+    function syncIfOnline() {
+      if (!onlineMode || !db || !roomCode) return;
+      db.collection('rooms').doc(roomCode).update({
+        gameState: serializeGameState(),
+        version: firebase.firestore.FieldValue.increment(1)
+      }).catch(err => console.error('Erro ao sincronizar sala:', err));
+    }
+
+    // Aplica um estado recebido de OUTRO jogador
+    function applyRemoteGameState(newState) {
+      // Detecta jogadores recém-eliminados para aplicar o efeito visual 3D neste dispositivo também
+      game.players.forEach((oldP, idx) => {
+        const newP = newState.players[idx];
+        if (oldP && oldP.isAlive && newP && !newP.isAlive) {
+          visuallyMarkEliminated(idx);
+        }
+      });
+
+      // Detecta troca de intempérie/rodada para atualizar o clima 3D
+      const eventChanged = !game.currentEvent || !newState.currentEvent ||
+        game.currentEvent.name !== newState.currentEvent.name || game.round !== newState.round;
+
+      loadGameState(newState);
+
+      if (eventChanged && game.currentEvent) {
+        weatherMat.color.setHex(game.currentEvent.particleColor);
+        weatherMat.opacity = 0.55;
+      }
+
+      updateUI();
+
+      if (!game.isMatchRunning) {
+        const alivePlayers = game.players.filter(p => p.isAlive);
+        const winner = alivePlayers[0] || game.players[0];
+        showVictoryScreen(winner, game.round);
+      }
+    }
+
+    function listenToRoom(code) {
+      if (roomUnsub) roomUnsub();
+      roomUnsub = db.collection('rooms').doc(code).onSnapshot(docSnap => {
+        if (!docSnap.exists) {
+          document.getElementById('lobby-error-msg').innerText = 'A sala foi encerrada.';
+          leaveRoom();
+          document.getElementById('modal-lobby').classList.remove('hidden');
+          document.getElementById('lobby-waiting-screen').classList.add('hidden');
+          document.getElementById('lobby-choice-screen').classList.remove('hidden');
+          return;
+        }
+        const data = docSnap.data();
+
+        if (data.status === 'waiting') {
+          renderLobbyWaiting(data);
+        } else if (data.status === 'playing') {
+          if (localVersion === -1) {
+            // Primeira vez que a partida aparece pra mim: entra no jogo
+            document.getElementById('modal-lobby').classList.add('hidden');
+            document.getElementById('modal-setup').classList.add('hidden');
+            loadGameState(data.gameState);
+            localVersion = data.version;
+            updateUI();
+          } else if (data.version > localVersion) {
+            localVersion = data.version;
+            applyRemoteGameState(data.gameState);
+          }
+        }
+      }, err => {
+        console.error('Erro na sala:', err);
+        document.getElementById('lobby-error-msg').innerText = 'Erro de conexão com a sala.';
+      });
+    }
+
+    function renderLobbyWaiting(data) {
+      document.getElementById('lobby-choice-screen').classList.add('hidden');
+      document.getElementById('lobby-waiting-screen').classList.remove('hidden');
+      document.getElementById('lobby-room-code').innerText = roomCode;
+
+      const list = document.getElementById('lobby-players-list');
+      list.innerHTML = '';
+      const seatColors = ['var(--sector-a)', 'var(--sector-b)', 'var(--sector-c)', 'var(--sector-d)'];
+      (data.players || []).forEach((pl, idx) => {
+        const row = document.createElement('div');
+        row.className = 'mini-player-card';
+        row.innerHTML = `<span style="color:${seatColors[idx]}; font-weight:800;">Setor ${String.fromCharCode(65 + idx)}</span> — ${pl.name}${idx === 0 ? ' (anfitrião)' : ''}`;
+        list.appendChild(row);
+      });
+      onlineNames = (data.players || []).map(p => p.name);
+
+      const startBtn = document.getElementById('btn-lobby-start-online');
+      if (isHost) {
+        // Como o tabuleiro tem 4 setores fixos, a partida online exige os 4 assentos preenchidos.
+        const enough = onlineNames.length === 4;
+        startBtn.disabled = !enough;
+        startBtn.innerText = enough ? 'INICIAR PARTIDA' : `AGUARDANDO JOGADORES... (${onlineNames.length}/4)`;
+      } else {
+        startBtn.disabled = true;
+        startBtn.innerText = 'AGUARDANDO O ANFITRIÃO INICIAR...';
+      }
+    }
+
+    function leaveRoom() {
+      if (roomUnsub) { roomUnsub(); roomUnsub = null; }
+      onlineMode = false;
+      isHost = false;
+      roomCode = null;
+      myPlayerId = null;
+      localVersion = -1;
+      document.getElementById('lobby-waiting-screen').classList.add('hidden');
+      document.getElementById('lobby-choice-screen').classList.remove('hidden');
+      document.getElementById('lobby-join-row').classList.add('hidden');
+      document.getElementById('lobby-error-msg').innerText = '';
+    }
+
+    async function createRoom() {
+      if (!db) { document.getElementById('lobby-error-msg').innerText = 'Firebase não configurado (veja o topo do código).'; return; }
+      const myName = prompt('Seu nome de jogador:', 'Jogador 1') || 'Jogador 1';
+      const code = generateRoomCode();
+      try {
+        await db.collection('rooms').doc(code).set({
+          status: 'waiting',
+          players: [{ name: myName }],
+          version: 0,
+          gameState: null,
+          createdAt: Date.now()
+        });
+        roomCode = code;
+        isHost = true;
+        onlineMode = true;
+        myPlayerId = 0;
+        localVersion = -1;
+        listenToRoom(code);
+      } catch (e) {
+        document.getElementById('lobby-error-msg').innerText = 'Não foi possível criar a sala. Verifique sua configuração do Firebase.';
+        console.error(e);
+      }
+    }
+
+    async function joinRoom(code) {
+      if (!db) { document.getElementById('lobby-error-msg').innerText = 'Firebase não configurado (veja o topo do código).'; return; }
+      code = code.trim().toUpperCase();
+      if (!code) return;
+      const myName = prompt('Seu nome de jogador:', 'Jogador') || 'Jogador';
+      const ref = db.collection('rooms').doc(code);
+      try {
+        const result = await db.runTransaction(async (tx) => {
+          const docSnap = await tx.get(ref);
+          if (!docSnap.exists) throw new Error('not_found');
+          const data = docSnap.data();
+          if (data.status !== 'waiting') throw new Error('already_started');
+          if ((data.players || []).length >= 4) throw new Error('room_full');
+          const newPlayers = [...data.players, { name: myName }];
+          tx.update(ref, { players: newPlayers });
+          return newPlayers.length - 1; // meu assento
+        });
+        roomCode = code;
+        isHost = false;
+        onlineMode = true;
+        myPlayerId = result;
+        localVersion = -1;
+        listenToRoom(code);
+      } catch (e) {
+        const msg = e.message === 'not_found' ? 'Sala não encontrada. Confira o código.'
+          : e.message === 'already_started' ? 'Essa partida já começou.'
+          : e.message === 'room_full' ? 'Sala cheia (máx. 4 jogadores).'
+          : 'Não foi possível entrar na sala.';
+        document.getElementById('lobby-error-msg').innerText = msg;
+      }
+    }
+
+    /* Lobby UI wiring */
+    document.getElementById('btn-lobby-create').addEventListener('click', () => { sound.playClick(); createRoom(); });
+    document.getElementById('btn-lobby-show-join').addEventListener('click', () => {
+      document.getElementById('lobby-join-row').classList.remove('hidden');
+    });
+    document.getElementById('btn-lobby-join').addEventListener('click', () => {
+      sound.playClick();
+      joinRoom(document.getElementById('lobby-join-code').value);
+    });
+    document.getElementById('btn-lobby-local').addEventListener('click', () => {
+      sound.playClick();
+      document.getElementById('modal-lobby').classList.add('hidden');
+      document.getElementById('modal-setup').classList.remove('hidden');
+    });
+    document.getElementById('btn-lobby-leave').addEventListener('click', () => {
+      if (roomCode && isHost) {
+        db.collection('rooms').doc(roomCode).delete().catch(() => {});
+      }
+      leaveRoom();
+    });
+    document.getElementById('btn-lobby-start-online').addEventListener('click', async () => {
+      if (!isHost) return;
+      sound.playClick();
+      game.initPlayers(onlineNames);
+      await db.collection('rooms').doc(roomCode).update({
+        status: 'playing',
+        gameState: serializeGameState(),
+        version: 1
+      });
+      localVersion = 1;
+      document.getElementById('modal-lobby').classList.add('hidden');
+    });
+
+    /* =========================================================================
+       4. USER INTERFACE RENDERING & CONTROLS
+       ========================================================================= */
+
+    function updateUI() {
+      const current = game.getCurrentPlayer();
+      if (!current) return;
+
+      updateCameraFocusToCurrentPlayer();
+
+      // Update Top Round
+      document.getElementById('hud-round-indicator').innerText = `RODADA ${String(game.round).padStart(2, '0')} • TURNO DE ${current.playerName.toUpperCase()}`;
+
+      // Update Environmental Event
+      if (game.currentEvent) {
+        document.getElementById('hud-event-icon').innerText = game.currentEvent.icon;
+        document.getElementById('hud-event-name').innerText = game.currentEvent.name;
+        document.getElementById('hud-event-desc').innerText = game.currentEvent.desc;
+        document.getElementById('hud-event-dmg').innerText = `-${game.eventDamage} PS`;
+      }
+
+      // Update Players Status Bar
+      const playersBar = document.getElementById('hud-players-bar');
+      playersBar.innerHTML = '';
+      game.players.forEach((p, idx) => {
+        const card = document.createElement('div');
+        card.className = `mini-player-card ${idx === game.currentPlayerIdx ? 'active-turn' : ''} ${!p.isAlive ? 'eliminated' : ''}`;
+        card.style.setProperty('--sector-color', p.color);
+        
+        let badgesHtml = '';
+        if (p.defenseActive > 0) badgesHtml += `<span class="badge-shield">🛡️ ${p.defenseActive}</span>`;
+        if (p.isBlocked) badgesHtml += `<span class="badge-blocked">🔒 Bloq</span>`;
+
+        card.innerHTML = `
+          <div class="mini-badges">${badgesHtml}</div>
+          <div class="mini-card-header">
+            <span style="color: ${p.color};">${p.icon} ${p.playerName}</span>
+            <span class="sector-tag">${p.sectorPrefix}</span>
+          </div>
+          <div class="mini-hp-bar">
+            <div class="mini-hp-fill" style="width: ${Math.max(0, p.hp)}%;"></div>
+          </div>
+          <div class="mini-stats">
+            <span>PS: <strong>${Math.max(0, p.hp)}</strong></span>
+            <span>⚡ <strong>${p.credits}</strong></span>
+          </div>
+        `;
+        playersBar.appendChild(card);
+      });
+
+      // In online mode each device always shows ITS OWN player's panel/hand.
+      // In local (hot-seat) mode, that's simply whoever's turn it is.
+      const me = onlineMode ? game.players[myPlayerId] : current;
+      const myTurn = canAct();
+
+      // Update "My Player" HUD Details
+      document.getElementById('hud-current-avatar').innerText = me.icon;
+      document.getElementById('hud-current-avatar').style.backgroundColor = 'rgba(0,0,0,0.05)';
+      document.getElementById('hud-current-avatar').style.borderColor = me.color;
+      document.getElementById('hud-current-avatar').style.boxShadow = `2px 2px 0 ${me.color}`;
+      document.getElementById('hud-current-name').innerText = me.playerName;
+      document.getElementById('hud-current-name').style.color = me.color;
+      document.getElementById('hud-current-sector').innerText = `${me.sectorPrefix} • ${me.sectorName}`;
+      document.getElementById('hud-current-hp').innerText = `${Math.max(0, me.hp)} / 100`;
+      
+      const hpFill = document.getElementById('hud-current-hp-bar');
+      hpFill.style.width = `${Math.max(0, me.hp)}%`;
+      if (me.hp <= 25) {
+        hpFill.style.background = 'linear-gradient(90deg, #ef4444, #f87171)';
+      } else if (me.hp <= 50) {
+        hpFill.style.background = 'linear-gradient(90deg, #f59e0b, #fbbf24)';
+      } else {
+        hpFill.style.background = 'linear-gradient(90deg, #10b981, #34d399)';
+      }
+
+      document.getElementById('hud-current-credits').innerText = me.credits;
+      document.getElementById('hud-current-defense').innerText = `${me.defenseActive} PS`;
+
+      // Buy card button state
+      const btnBuy = document.getElementById('btn-buy-card');
+      btnBuy.disabled = !myTurn || me.credits < 4 || me.hand.length >= 7 || me.isBlocked;
+
+      // Blocked turn warning banner
+      const alertContainer = document.getElementById('turn-alert-container');
+      if (me.isBlocked && myTurn) {
+        alertContainer.innerHTML = `
+          <div class="blocked-turn-alert">
+            <span>⚠️</span>
+            <span>SETOR BLOQUEADO: Seus sistemas foram paralisados por sabotagem. Não é possível jogar cartas neste turno! Clique em "Passar Turno" para resolver a intempérie.</span>
+          </div>
+        `;
+      } else if (onlineMode && !myTurn) {
+        alertContainer.innerHTML = `
+          <div class="blocked-turn-alert" style="background:rgba(28,127,176,0.12); border-color:rgba(28,127,176,0.4); color:var(--accent-cyan);">
+            <span>⏳</span>
+            <span>Aguardando a jogada de [${current.playerName}]...</span>
+          </div>
+        `;
+      } else {
+        alertContainer.innerHTML = '';
+      }
+
+      // Render My Hand Cards
+      const handContainer = document.getElementById('hand-container');
+      handContainer.innerHTML = '';
+
+      if (me.hand.length === 0) {
+        handContainer.innerHTML = `<div class="empty-hand-msg">Nenhuma carta na mão. Compre uma carta do baralho para obter vantagens ou sabotar rivais!</div>`;
+      } else {
+        me.hand.forEach(c => {
+          const cardEl = document.createElement('div');
+          const isAffordable = myTurn && me.credits >= c.cost && !me.isBlocked;
+          cardEl.className = `card ${!isAffordable ? 'unaffordable' : ''}`;
+          cardEl.style.setProperty('--card-color', c.color);
+          cardEl.style.setProperty('--card-glow', `${c.color}66`);
+
+          cardEl.innerHTML = `
+            <div class="card-top">
+              <span class="card-type-tag">${c.type}</span>
+              <span class="card-cost">⚡ ${c.cost}</span>
+            </div>
+            <div class="card-body">
+              <div class="card-icon">${c.icon}</div>
+              <div class="card-title">${c.name}</div>
+              <div class="card-desc">${c.desc}</div>
+            </div>
+            <button class="card-btn-play" ${!isAffordable ? 'disabled' : ''}>${isAffordable ? 'JOGAR' : 'BLOQUEADO'}</button>
+          `;
+
+          cardEl.querySelector('.card-btn-play').addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (isAffordable) {
+              game.playCard(c.uid);
+              syncIfOnline();
+            }
+          });
+
+          handContainer.appendChild(cardEl);
+        });
+      }
+    }
+
+    function visuallyMarkEliminated(playerId) {
+      const secMesh = sectorMeshes[playerId];
+      if (secMesh && secMesh.alive) {
+        secMesh.alive = false;
+        secMesh.base.mesh.material = [deadIslandMaterial, deadIslandMaterial, deadIslandMaterial];
+      }
+    }
+
+    function addLog(text, type = 'normal') {
+      const feed = document.getElementById('combat-log-feed');
+      const entry = document.createElement('div');
+      entry.className = `log-entry ${type}`;
+      entry.innerHTML = text;
+      feed.appendChild(entry);
+      feed.scrollTop = feed.scrollHeight;
+    }
+
+    /* Target Selection Modal */
+    function openTargetModal(card) {
+      const modal = document.getElementById('modal-target');
+      const title = document.getElementById('target-modal-title');
+      const desc = document.getElementById('target-modal-desc');
+      const icon = document.getElementById('target-modal-icon');
+      const grid = document.getElementById('targets-grid');
+
+      icon.innerText = card.icon;
+      title.innerText = `ALVO DE: ${card.name.toUpperCase()}`;
+      desc.innerText = card.desc;
+      grid.innerHTML = '';
+
+      const current = game.getCurrentPlayer();
+
+      game.players.forEach(p => {
+        if (p.id !== current.id && p.isAlive) {
+          const tCard = document.createElement('div');
+          tCard.className = 'target-card';
+          tCard.style.setProperty('--target-color', p.color);
+          tCard.innerHTML = `
+            <div class="target-avatar hex-frame">${p.icon}</div>
+            <div class="target-name" style="color:${p.color};">${p.playerName}</div>
+            <div class="target-stats">
+              <div>PS: <strong>${p.hp}</strong></div>
+              <div>⚡ <strong>${p.credits}</strong></div>
+              <div>Defesa: <strong>${p.defenseActive}</strong></div>
+            </div>
+          `;
+          tCard.addEventListener('click', () => {
+            game.executeTargetedCard(p.id);
+            syncIfOnline();
+          });
+          grid.appendChild(tCard);
+        }
+      });
+
+      modal.classList.remove('hidden');
+    }
+
+    function closeTargetModal() {
+      document.getElementById('modal-target').classList.add('hidden');
+      game.pendingCardAction = null;
+    }
+
+    document.getElementById('btn-target-cancel').addEventListener('click', closeTargetModal);
+
+    /* Floating Combat Text in 2D Space */
+    function spawnFCT(sectorId, text, color) {
+      const coord = SECTOR_COORDS[sectorId];
+      if (!coord) return;
+
+      const v = new THREE.Vector3(coord.x, HEX_HEIGHT + 1.2, coord.z);
+      v.project(camera);
+
+      const screenX = (v.x * 0.5 + 0.5) * window.innerWidth;
+      const screenY = (-(v.y * 0.5) + 0.5) * window.innerHeight;
+
+      const fct = document.createElement('div');
+      fct.className = 'fct';
+      fct.style.left = `${screenX}px`;
+      fct.style.top = `${screenY}px`;
+      fct.style.color = color;
+      fct.innerText = text;
+
+      const container = document.getElementById('fct-container');
+      container.appendChild(fct);
+
+      setTimeout(() => fct.remove(), 1400);
+    }
+
+    /* Camera Shake Effect for Heavy Attacks */
+    let shakeIntensity = 0;
+    function triggerCameraShake() {
+      shakeIntensity = 0.6;
+    }
+
+    /* Victory Screen */
+    function showVictoryScreen(winner, totalRounds) {
+      sound.playVictory();
+      const modal = document.getElementById('modal-victory');
+      document.getElementById('victory-announcement').innerHTML = `O <strong style="color:${winner.color};">${winner.playerName}</strong> (${winner.sectorPrefix} • ${winner.sectorName}) superou todos os desastres ecológicos e sabotagens e conquistou a Cidade de Pedra Runa!`;
+      document.getElementById('stat-rounds').innerText = String(totalRounds).padStart(2, '0');
+      document.getElementById('stat-final-hp').innerText = `${winner.hp} PS`;
+      modal.classList.remove('hidden');
+    }
+
+    /* Button Event Listeners */
+    document.getElementById('btn-buy-card').addEventListener('click', () => {
+      if (!canAct()) return;
+      game.buyCard();
+      syncIfOnline();
+    });
+    document.getElementById('btn-end-turn').addEventListener('click', () => {
+      if (!canAct()) return;
+      game.endTurn();
+      syncIfOnline();
+    });
+
+    document.getElementById('btn-start-match').addEventListener('click', () => {
+      sound.playClick();
+      const names = [
+        document.getElementById('setup-p0').value.trim() || 'Jogador 1',
+        document.getElementById('setup-p1').value.trim() || 'Jogador 2',
+        document.getElementById('setup-p2').value.trim() || 'Jogador 3',
+        document.getElementById('setup-p3').value.trim() || 'Jogador 4'
+      ];
+      document.getElementById('modal-setup').classList.add('hidden');
+      onlineMode = false;
+      myPlayerId = 0;
+      game.initPlayers(names);
+    });
+
+    document.getElementById('btn-restart-game').addEventListener('click', () => {
+      document.getElementById('modal-victory').classList.add('hidden');
+      // Reset 3D sector materials and states
+      sectorMeshes.forEach(sec => {
+        sec.alive = true;
+        sec.base.mesh.material = [sec.base.matSide, sec.base.matTop, sec.base.matSide];
+        sec.group.position.set(sec.coord.x, 0, sec.coord.z);
+        sec.group.rotation.set(0, 0, 0);
+      });
+      islandGroup.rotation.set(0, 0, 0);
+
+      if (onlineMode) {
+        leaveRoom();
+        document.getElementById('modal-lobby').classList.remove('hidden');
+      } else {
+        document.getElementById('modal-setup').classList.remove('hidden');
+      }
+    });
+
+    // Audio Mute Toggle
+    const btnSound = document.getElementById('btn-sound-toggle');
+    btnSound.addEventListener('click', () => {
+      sound.muted = !sound.muted;
+      btnSound.innerText = sound.muted ? '🔇' : '🔊';
+    });
+
+    // Camera Reset
+    document.getElementById('btn-cam-reset').addEventListener('click', () => {
+      sound.playClick();
+      updateCameraFocusToCurrentPlayer();
+      islandGroup.rotation.set(0, 0, 0);
+    });
+
+    // Orbit Rotation Toggle
+    let autoRotateIsland = false;
+    const btnOrbit = document.getElementById('btn-orbit-toggle');
+    btnOrbit.addEventListener('click', () => {
+      sound.playClick();
+      autoRotateIsland = !autoRotateIsland;
+      btnOrbit.style.color = autoRotateIsland ? 'var(--accent-cyan)' : 'var(--text-main)';
+    });
+
+    /* =========================================================================
+       5. RENDER LOOP & FLOATING PROCEDURAL ISLAND ANIMATIONS
+       ========================================================================= */
+    const clock = new THREE.Clock();
+
+    function animate() {
+      requestAnimationFrame(animate);
+
+      const delta = clock.getDelta();
+      const time = clock.getElapsedTime();
+
+      // Cohesive floating animation for the unified interlocking island
+      islandGroup.position.y = Math.sin(time * 1.3) * 0.22;
+      islandGroup.rotation.x = Math.sin(time * 0.7) * 0.01;
+      islandGroup.rotation.z = Math.cos(time * 0.6) * 0.01;
+
+      // Sectors status and details animation
+      sectorMeshes.forEach((sec, idx) => {
+        if (!sec.alive) {
+          // Fallen eliminated island slowly detaches and sinks into the dark abyss
+          sec.group.position.y = THREE.MathUtils.lerp(sec.group.position.y, -3.5, 0.03);
+          sec.group.rotation.x = THREE.MathUtils.lerp(sec.group.rotation.x, 0.08, 0.03);
+        } else {
+          sec.group.position.y = 0;
+          sec.group.rotation.x = 0;
+          sec.group.rotation.z = 0;
+        }
+
+        // Industrial smoke update
+        if (sec.smokeParticles) {
+          sec.smokeParticles.forEach(sm => {
+            sm.position.y += sm.userData.speed;
+            sm.position.x += sm.userData.driftX;
+            sm.scale.addScalar(0.005);
+            if (sm.position.y > sm.userData.baseChim.y + 2.2) {
+              sm.position.set(sm.userData.baseChim.x, sm.userData.baseChim.y, sm.userData.baseChim.z);
+              sm.scale.set(0.1, 0.1, 0.1);
+            }
+          });
+        }
+
+        // High-tech holographic ring rotate
+        if (sec.holoRing) {
+          sec.holoRing.rotation.z += 0.02;
+          sec.holoRing.rotation.y += 0.01;
+        }
+
+        // Runic crystal bobbing
+        if (sec.crystal) {
+          sec.crystal.rotation.y += 0.025;
+          sec.crystal.position.y = HEX_HEIGHT/2 + 0.7 + Math.sin(time * 3.0) * 0.1;
+        }
+
+        // Trenzinho circulando o Setor A (Minas & Florestas)
+        if (sec.forestTrain) {
+          const trainSpeed = 0.45; // rad/s
+          sec.forestTrain.cars.forEach(car => {
+            const angle = time * trainSpeed + car.offset;
+            const x = Math.cos(angle) * sec.forestTrain.radius;
+            const z = Math.sin(angle) * sec.forestTrain.radius;
+            car.mesh.position.set(x, sec.forestTrain.y, z);
+            // Orienta o vagão tangente à curva, na direção do movimento
+            car.mesh.rotation.y = -angle - Math.PI / 2;
+            // Leve balanço nos trilhos
+            car.mesh.position.y += Math.sin(time * 8 + car.offset * 4) * 0.012;
+          });
+        }
+
+        // Carrinho circulando a torre central do Setor D (Empresarial)
+        if (sec.businessCar) {
+          const carSpeed = 0.55; // unidades/seg ao longo do percurso quadrado
+          const bc = sec.businessCar;
+          const perim = bc.squareHalf * 2 * 4;
+          const p = pointOnSquarePath(time * carSpeed, bc.squareHalf, bc.squareCX, bc.squareCZ);
+          bc.mesh.position.set(p.x, bc.y, p.z);
+          bc.mesh.rotation.y = Math.atan2(-p.dz, p.dx);
+        }
+      });
+
+      // Subtle luminous wave pulse on the continuous single river
+      riverMaterial.emissiveIntensity = 0.9 + Math.sin(time * 3.6) * 0.28;
+      riverJointMaterial.emissiveIntensity = riverMaterial.emissiveIntensity;
+      riverTexture.offset.x = (time * 0.42) % 1;
+
+      // Queda d'água contínua nas cachoeiras
+      waterfallTexture.offset.y = -(time * 0.9) % 1;
+
+      // Névoa/respingo subindo e desaparecendo na base das cachoeiras
+      const mistPositions = waterfallMist.geometry.attributes.position.array;
+      mistUserData.forEach((p, i) => {
+        const ix = i * 3;
+        mistPositions[ix + 1] += p.speed;
+        mistPositions[ix]     += p.driftX;
+        mistPositions[ix + 2] += p.driftZ;
+        p.life -= 0.012;
+
+        if (p.life <= 0) {
+          mistPositions[ix]     = p.base.x + (Math.random() - 0.5) * RIVER_WIDTH;
+          mistPositions[ix + 1] = p.base.y;
+          mistPositions[ix + 2] = p.base.z + (Math.random() - 0.5) * 0.3;
+          p.life = 1;
+        }
+      });
+      waterfallMist.geometry.attributes.position.needsUpdate = true;
+      waterfallMist.material.opacity = 0.55 + Math.sin(time * 5) * 0.15;
+
+      // Anéis de espuma "respirando" no impacto
+      splashRings.forEach((ring, i) => {
+        const s = 1 + Math.sin(time * 4 + i) * 0.15;
+        ring.scale.set(s, s, 1);
+        ring.material.opacity = 0.35 + Math.sin(time * 4 + i) * 0.15;
+      });
+
+      // Weather Particles Falling Animation
+      if (weatherMat.opacity > 0.05) {
+        const positions = weatherParticles.geometry.attributes.position.array;
+        for (let i = 1; i < weatherParticleCount * 3; i += 3) {
+          positions[i] -= 0.22;
+          if (positions[i] < -2) {
+            positions[i] = 26;
+          }
+        }
+        weatherParticles.geometry.attributes.position.needsUpdate = true;
+      }
+
+      // Fluffy clouds drifting across the blue sky
+      clouds.forEach(c => {
+        c.position.x += c.userData.speed;
+        if (c.position.x > 55) {
+          c.position.x = -55;
+        }
+      });
+
+      // Daylight breeze slow drift
+      breezePoints.rotation.y = time * 0.005;
+
+      // Optional Auto-orbit island rotation
+      if (autoRotateIsland) {
+        islandGroup.rotation.y += 0.004;
+      }
+
+      // Camera Shake
+      if (shakeIntensity > 0.01) {
+        camera.position.x = cameraTargetPosition.x + (Math.random() - 0.5) * shakeIntensity;
+        camera.position.y = cameraTargetPosition.y + (Math.random() - 0.5) * shakeIntensity;
+        camera.position.z = cameraTargetPosition.z + (Math.random() - 0.5) * shakeIntensity;
+        camera.lookAt(cameraTargetLookTarget);
+        shakeIntensity *= 0.9;
+      } else if (!autoRotateIsland) {
+        if (cameraTransitionProgress < 1) {
+          const t = Math.min(1, cameraTransitionProgress / cameraTransitionDuration);
+          const eased = 1 - Math.pow(1 - t, 3);
+          camera.position.lerpVectors(cameraTransitionStartPosition, cameraTargetPosition, eased);
+          cameraLookTarget.lerpVectors(cameraTransitionStartLookTarget, cameraTargetLookTarget, eased);
+          camera.lookAt(cameraLookTarget);
+          cameraTransitionProgress += delta / cameraTransitionDuration;
+        } else {
+          camera.position.lerp(cameraTargetPosition, 0.08);
+          cameraLookTarget.copy(cameraTargetLookTarget);
+          camera.lookAt(cameraLookTarget);
+        }
+      }
+
+      renderer.render(scene, camera);
+    }
+
+    // Window Resize Handler
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    // Start 3D Loop
+    animate();
+
+  </script>
+</body>
+</html>
